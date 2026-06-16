@@ -27,6 +27,11 @@ node_modules/
 dist/
 .next/
 .vite/
+# TypeScript Project References build output
+*.tsbuildinfo
+# tsc -b may emit .js / .d.ts alongside .ts in source tree
+apps/frontend/vite.config.js
+apps/frontend/vite.config.d.ts
 
 # Environment / Secrets
 .env

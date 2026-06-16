@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: "VT323", "Courier New", monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  canvas {
+    image-rendering: pixelated;
+  }
+}
+
+@layer utilities {
+  .font-pixel {
+    font-family: "Press Start 2P", "VT323", "Courier New", monospace;
+  }
+  .font-body {
+    font-family: "VT323", "Courier New", monospace;
+  }
+}
