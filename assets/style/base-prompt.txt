@@ -1,0 +1,19 @@
+Knowledge World visual style base prompt:
+
+Pixel art illustrated knowledge map for "Sapiens: A Brief History of Humankind", warm parchment-map aesthetic, cozy strategy/RPG world-map feeling, 3/4 top-down view, hard dark-brown pixel outlines, readable glowing node dots, dotted learning paths, soft warm shadows, no realistic rendering, no glossy 3D, no typography unless explicitly requested.
+
+Core protagonist:
+Young blond map apprentice, clean-shaven, no beard, no mustache, no glasses, oversized brown scholar-adventurer hat with cream feather and buckle, cream short robe, brown scarf, small brown backpack with rolled map, brown boots, holding parchment map and golden feather pen, cute compact chibi proportion matching `scholar_idle_candidate.jpg`.
+
+World language:
+Four connected regions inspired by `world_map_sapiens.jpg`:
+- Golden Cognitive Savanna: cave paintings, campfire, sandy savanna, prehistoric traces.
+- Agricultural Plains: wheat fields, irrigation canals, huts, grain baskets, farmland grids.
+- Unification Mountains: rocky mountains, classical temples, columns, coin monuments, tablets.
+- Scientific Continent: purple-blue mist, telescope, DNA helix, city silhouettes, laboratory shapes, teal water.
+
+Palette anchor:
+Parchment beige, warm gold, wheat yellow, olive green, mountain brown, temple stone, scientific purple-blue, teal water, glowing node yellow, dark ink brown.
+
+Negative prompt:
+No old scholar, no white beard, no glasses on protagonist, no large realistic face, no unreadable fake typography, no labels, no UI clutter, no modern flat vector style, no anime portrait close-up, no photorealism.
