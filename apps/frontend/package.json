@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b --noCheck && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b --noCheck"
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "gsap": "^3.12.5"
+    "gsap": "^3.12.5",
+    "pixi.js": "^7.4.2",
+    "@pixi/react": "^7.1.2",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

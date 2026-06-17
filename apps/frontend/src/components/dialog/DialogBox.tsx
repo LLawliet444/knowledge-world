@@ -1,244 +1,236 @@
-import React, { useCallback, useEffect, useState } from "react";
-import type { WorldNode, NodeState } from "../../types/world";
-import type { DiagnosticResponse } from "../../types/feedback";
-import { getFeedback, getQuestion } from "../../api/nodes";
-import { PixelButton } from "../common/PixelButton";
-import { getNodeIcon } from "../../constants/node";
-
-export interface DialogBoxProps {
-  node: WorldNode | null;
-  onClose: () => void;
-  onStateChange: (nodeId: string, state: NodeState) => void;
-}
-
-type Phase = "loading" | "question" | "feedback";
-
 /**
- * Dialog box styled with the dialogue_box_frame.png asset as the frame
- * background. The NPC avatar sits on the left where the frame's art was
- * designed to hold it, and the right side shows either the question + textarea
- * or the diagnostic feedback card.
+ * 主对话框组件
  *
- * Frame layout (approximate, matches the art in dialogue_box_frame.png):
- *
- *  ┌─────────────────────────────────────────────────────────────┐
- *  │ ┌──┐                                                        │
- *  │ │👴│   苏格拉底导师                                          │
- *  │ │  │                                                        │
- *  │ └──┘   【认知革命】                                           │
- *  │        如果没有虚构故事的能力，我们还能组织超过 150 人的大规模     │
- *  │        协作吗？                                              │
- *  │                                                            │
- *  │        ┌───────────────────────────────────────────────┐  │
- *  │        │ 输入回答...                                   │  │
- *  │        └───────────────────────────────────────────────┘  │
- *  │                                               [提交] [关闭]  │
- *  └─────────────────────────────────────────────────────────────┘
+ * 使用 assets/ui/dialogue/dialogue_box_frame.png 作为外框背景
+ * 右侧上方：关卡 NPC 头像 + 谜题标题（关卡引入）
+ * 右侧下方：根据 phase 切换 WhatCards / QuestionBubble / FeedbackCard / FinalQuestion
  */
-export const DialogBox: React.FC<DialogBoxProps> = ({
-  node,
-  onClose,
-  onStateChange,
-}) => {
-  const [phase, setPhase] = useState<Phase>("loading");
-  const [question, setQuestion] = useState("");
+
+import React, { useCallback, useEffect, useState } from "react";
+import { useDialogStore } from "../../store/dialogStore";
+import { useWorldStore } from "../../store/worldStore";
+import { getQuestion, getFeedback } from "../../api/nodes";
+import { WhatCards } from "./WhatCards";
+import { FeedbackCard } from "./FeedbackCard";
+import { MentorAvatar } from "./MentorAvatar";
+import { PixelButton } from "../common/PixelButton";
+import type { LayerType } from "../../types/world";
+
+export const DialogBox: React.FC = () => {
+  const {
+    phase,
+    currentNode,
+    depth,
+    round,
+    question,
+    feedback,
+    feedbackLevel,
+    depthState,
+    setLoading,
+    setReading,
+    setQuestion,
+    setFeedback,
+    setFinal,
+    nextRound,
+    close,
+  } = useDialogStore();
+
+  const { updateNodeDepthState, nodeProgress } = useWorldStore();
   const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState<DiagnosticResponse | null>(null);
-  const [round, setRound] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset + fetch question when the user clicks a new node.
+  // 打开节点后，根据深度进入不同阶段
   useEffect(() => {
-    if (!node) return;
-    setPhase("loading");
-    setFeedback(null);
-    setAnswer("");
-    setRound(1);
-    let cancelled = false;
+    if (!currentNode || phase !== "loading") return;
 
-    getQuestion({
-      node_id: node.id,
-      node_name: node.name,
-      layer: node.layer,
-      source_excerpt: node.sourceExcerpt,
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setQuestion(res.question);
-        setPhase("question");
+    if (depth === "what") {
+      setReading();
+    } else {
+      // 请求 AI 提问
+      getQuestion({
+        node_id: currentNode.id,
+        node_name: currentNode.name,
+        depth,
+        mystery_question: currentNode.mysteryQuestion,
+        source_excerpt: currentNode.sourceExcerpt,
+        mentor_prompts: currentNode.mentorPrompts,
+        round: round as 1 | 2 | 3,
       })
-      .catch(() => {
-        if (!cancelled) {
-          setQuestion(
-            `用你自己的话解释：【${node.name}】到底是什么？它和其他节点有什么关系？`,
-          );
-          setPhase("question");
-        }
-      });
+        .then((res) => {
+          setQuestion(res);
+        })
+        .catch(() => {
+          // fallback 已内置在 apiFetch 中
+          setQuestion({
+            question: `用你自己的话解释：【${currentNode.name}】？`,
+            followups: ["", ""],
+            depth,
+          });
+        });
+    }
+  }, [currentNode?.id, phase]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [node?.id, node?.name, node?.layer, node?.sourceExcerpt]);
+  // What 层翻卡完成
+  const handleWhatComplete = useCallback(
+    (choice: "definition" | "example" | "bridge") => {
+      if (!currentNode) return;
+      // 标记 What 层为 completed
+      updateNodeDepthState(currentNode.id, "what", "completed");
+      close();
+    },
+    [currentNode, updateNodeDepthState, close],
+  );
 
+  // 用户提交回答
   const handleSubmit = useCallback(async () => {
-    if (!node || phase !== "question" || !answer.trim() || submitting) return;
+    if (!currentNode || !answer.trim() || submitting) return;
     setSubmitting(true);
     try {
       const res = await getFeedback({
-        node_id: node.id,
-        node_name: node.name,
-        source_excerpt: node.sourceExcerpt,
+        node_id: currentNode.id,
+        node_name: currentNode.name,
+        source_excerpt: currentNode.sourceExcerpt,
         user_answer: answer,
-        round,
+        depth,
+        round: round as 1 | 2 | 3,
       });
-      setFeedback(res);
-      setPhase("feedback");
-      onStateChange(node.id, res.node_state);
+      setFeedback(res.feedback_card, res.node_state, res.depth_state);
+      // 更新 store
+      updateNodeDepthState(currentNode.id, depth, res.depth_state);
     } finally {
       setSubmitting(false);
     }
-  }, [node, phase, answer, round, submitting, onStateChange]);
+  }, [currentNode, answer, depth, round, submitting, setFeedback, updateNodeDepthState]);
 
+  // 继续追问
   const handleContinue = useCallback(() => {
-    if (!node || !feedback) return;
-    setQuestion(feedback.next_best_question);
-    setFeedback(null);
+    nextRound();
     setAnswer("");
-    setRound((r) => r + 1);
-    setPhase("question");
-  }, [node, feedback]);
+  }, [nextRound]);
 
-  if (!node) return null;
+  // 深度标签文字
+  const depthLabel =
+    depth === "what"
+      ? "What · 认知层"
+      : depth === "how"
+      ? "How · 理解层"
+      : depth === "why"
+      ? "Why · 因果层"
+      : "System · 系统层";
 
-  // Chapter label derived from the node's layer.
-  const chapterName =
-    node.layer === "what"
-      ? "What · 认知大草原"
-      : node.layer === "how"
-      ? "How · 农业平原"
-      : node.layer === "why"
-      ? "Why · 统一山脉"
-      : "System · 科学大陆";
-
-  // State badge to show below the frame.
-  const stateLabel =
-    feedback?.node_state === "mastered"
-      ? "已掌握"
-      : feedback?.node_state === "transfer"
-      ? "迁移应用"
-      : feedback?.node_state === "learning"
-      ? "理解中"
-      : feedback?.node_state === "visited"
-      ? "首次接触"
-      : null;
+  if (!currentNode || phase === "closed") return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4 pointer-events-none">
       <div
         className="pointer-events-auto w-full max-w-5xl"
         style={{
-          // The dialogue_box_frame.png art defines the visual frame; we use
-          // it as a background and pad the inner content so it sits inside
-          // the "screen" area of the frame.
           backgroundImage: "url(/ui/dialogue/dialogue_box_frame.png)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "100% 100%",
-          padding: "28px 36px 28px 36px",
-          minHeight: 220,
-          // Dark brown text color to match the palette of the frame art.
+          padding: "24px 32px 24px 32px",
+          minHeight: 240,
           color: "#3a1f0a",
-          backgroundBlendMode: "normal",
         }}
       >
-        <div className="flex gap-6 items-stretch">
-          {/* NPC avatar + nameplate */}
-          <div className="flex-shrink-0 flex flex-col items-center" style={{ width: 140 }}>
-            {/* Chapter node icon (uses the nodes/ art for this chapter) */}
-            <div
-              className="relative flex items-center justify-center border-4 border-[#3a1f0a] rounded bg-[#fff8e6] shadow-[3px_3px_0_0_#3a1f0a]"
-              style={{ width: 88, height: 88 }}
-              aria-hidden
-            >
-              <img
-                src={getNodeIcon(node.iconType)}
-                alt=""
-                draggable={false}
-                style={{ width: 64, height: 64, imageRendering: "pixelated" }}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
-              />
-            </div>
-            {/* Layer / chapter label */}
-            <div
-              className="mt-1 px-2 py-[2px] font-pixel text-[10px] text-[#1a1226] border-2 border-[#3a1f0a] bg-[#f5d8a0] rounded shadow-[2px_2px_0_0_#3a1f0a]"
-              style={{ whiteSpace: "nowrap" }}
-            >
-              章节：{chapterName}
-            </div>
+        <div className="flex gap-5 items-stretch">
+          {/* 左侧：NPC + 老学者 */}
+          <div className="flex-shrink-0 flex flex-col items-center gap-2" style={{ width: 130 }}>
+            {/* 关卡 NPC */}
             <div
               className="flex items-center justify-center border-4 border-[#3a1f0a] rounded bg-[#fff8e6] shadow-[3px_3px_0_0_#3a1f0a]"
-              style={{ width: 112, height: 112 }}
+              style={{ width: 88, height: 88 }}
             >
               <img
-                src="/characters/npc_old_scholar_avatar.png"
-                alt="苏格拉底导师"
+                src={currentNode.gateNpc.avatar}
+                alt={currentNode.gateNpc.title}
                 draggable={false}
-                style={{ width: 96, height: 96, imageRendering: "pixelated" }}
-                onError={(e) => {
-                  // Fallback: show emoji.
-                  (e.currentTarget as HTMLImageElement).outerHTML =
-                    '<span style="font-size:64px;line-height:1;">🧙</span>';
-                }}
+                style={{ width: 72, height: 72, imageRendering: "pixelated" }}
               />
             </div>
-            <div
-              className="mt-2 px-3 py-1 font-pixel text-xs text-[#1a1226] border-2 border-[#3a1f0a] bg-[#f5d8a0] rounded shadow-[2px_2px_0_0_#3a1f0a]"
-              style={{ whiteSpace: "nowrap" }}
-            >
-              苏格拉底
+            <div className="px-2 py-[2px] font-pixel text-[10px] text-[#1a1226] border-2 border-[#3a1f0a] bg-[#f5d8a0] rounded shadow-[2px_2px_0_0_#3a1f0a]">
+              {currentNode.gateNpc.title}
             </div>
-            <div className="mt-1 font-pixel text-[10px] text-[#3a1f0a]/70">
-              关卡：{node.name}
+
+            {/* 深度标签 */}
+            <div className="font-pixel text-[10px] text-[#3a1f0a]/70">
+              {depthLabel}
             </div>
-            <div className="mt-1 font-pixel text-[10px] text-[#3a1f0a]/60">
-              第 {round} 轮
+            <div className="font-pixel text-[10px] text-[#3a1f0a]/50">
+              第 {round} / 3 轮
             </div>
+
+            {/* 老学者 */}
+            <MentorAvatar variant="avatar" size={72} />
+            <div className="font-pixel text-[10px] text-[#3a1f0a]/70">老学者</div>
           </div>
 
-          {/* Right: text area / feedback */}
-          <div className="flex-1 min-w-0 flex flex-col">
-            {phase === "loading" && (
-              <div className="flex-1 flex items-center font-body text-lg text-[#3a1f0a]">
-                苏格拉底正在思考…
-                <span className="ml-2 inline-flex gap-1">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#3a1f0a]" />
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#3a1f0a]" style={{ animationDelay: "120ms" }} />
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#3a1f0a]" style={{ animationDelay: "240ms" }} />
-                </span>
+          {/* 右侧：内容区 */}
+          <div className="flex-1 min-w-0 flex flex-col gap-3">
+            {/* 谜题标题 */}
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 text-2xl leading-none mt-1">❓</div>
+              <div className="font-body text-xl text-[#3a1f0a] leading-snug">
+                {currentNode.mysteryQuestion}
               </div>
-            )}
+            </div>
 
-            {phase === "question" && (
-              <div className="flex-1 flex flex-col">
-                <div className="font-body text-xl leading-snug text-[#3a1f0a]">
-                  {question}
+            {/* 内容区 */}
+            <div className="flex-1">
+              {/* Loading */}
+              {phase === "loading" && (
+                <div className="flex items-center gap-3 font-body text-xl text-[#3a1f0a]">
+                  老学者正在思考…
+                  <span className="flex gap-1 ml-2">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="h-2 w-2 rounded-full bg-[#3a1f0a] animate-pulse"
+                        style={{ animationDelay: `${i * 120}ms` }}
+                      />
+                    ))}
+                  </span>
                 </div>
-                <div className="mt-3 flex-1 flex flex-col">
+              )}
+
+              {/* What 翻卡 */}
+              {(phase === "reading" || phase === "what_confirm") && (
+                <WhatCards
+                  cards={currentNode.whatCards}
+                  mentorIntro={currentNode.mentorPrompts.whatIntro}
+                  onComplete={handleWhatComplete}
+                />
+              )}
+
+              {/* How/Why/System 提问 */}
+              {phase === "question" && question && (
+                <div className="flex flex-col gap-3">
+                  <div className="font-body text-xl text-[#3a1f0a] leading-snug">
+                    {question}
+                  </div>
+                  {question.followups[0] && (
+                    <div className="font-body text-base text-[#3a1f0a]/70 italic">
+                      💬 {question.followups[0]}
+                    </div>
+                  )}
+                  {question.followups[1] && (
+                    <div className="font-body text-base text-[#3a1f0a]/70 italic">
+                      💬 {question.followups[1]}
+                    </div>
+                  )}
                   <textarea
                     value={answer}
-                    onChange={(e) => setAnswer(e.target.value.slice(0, 1000))}
+                    onChange={(e) => setAnswer(e.target.value.slice(0, 500))}
                     placeholder="用你自己的话回答。不必完美，真诚就好。"
                     rows={3}
                     className="w-full resize-y rounded border-4 border-[#3a1f0a] bg-[#fff8e6] px-3 py-2 font-body text-lg text-[#1a1226] focus:outline-none focus:ring-4 focus:ring-[#f5b642]/60"
                   />
-                  <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                     <span className="font-pixel text-[10px] text-[#3a1f0a]/70">
-                      {answer.length} / 1000
+                      {answer.length} / 500
                     </span>
                     <div className="flex gap-2">
-                      <PixelButton onClick={onClose} variant="secondary">
+                      <PixelButton onClick={close} variant="secondary">
                         关闭
                       </PixelButton>
                       <PixelButton
@@ -250,63 +242,37 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {phase === "feedback" && feedback && (
-              <div className="flex-1 grid gap-3 md:grid-cols-2">
-                <div className="rounded border-4 border-[#3a1f0a] bg-[#fff8e6] p-3 shadow-[3px_3px_0_0_#3a1f0a]">
-                  <div className="font-pixel text-xs text-[#3a1f0a] mb-1">你已理解</div>
-                  <ul className="list-disc list-inside font-body text-base text-[#3a1f0a] space-y-1">
-                    {(feedback.feedback_card.understood?.length
-                      ? feedback.feedback_card.understood
-                      : ["——"]
-                    ).map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded border-4 border-[#3a1f0a] bg-[#fbe3b4] p-3 shadow-[3px_3px_0_0_#3a1f0a]">
-                  <div className="font-pixel text-xs text-[#3a1f0a] mb-1">还缺一点</div>
-                  <ul className="list-disc list-inside font-body text-base text-[#3a1f0a] space-y-1">
-                    {(feedback.feedback_card.missing?.length
-                      ? feedback.feedback_card.missing
-                      : ["——"]
-                    ).map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded border-4 border-[#3a1f0a] bg-[#e8d5f7] p-3 shadow-[3px_3px_0_0_#3a1f0a]">
-                  <div className="font-pixel text-xs text-[#3a1f0a] mb-1">提示</div>
-                  <p className="font-body text-base leading-snug text-[#3a1f0a]">
-                    {feedback.feedback_card.guidance || "继续追问自己，把概念拆成更小的问题。"}
-                  </p>
-                </div>
-                <div className="rounded border-4 border-[#3a1f0a] bg-[#dff0e4] p-3 shadow-[3px_3px_0_0_#3a1f0a] flex flex-col">
-                  <div className="font-pixel text-xs text-[#3a1f0a] mb-1">下一问</div>
-                  <p className="flex-1 font-body text-base leading-snug text-[#3a1f0a]">
-                    {feedback.feedback_card.next_question ||
-                      "如果让你再追问一次，你会问自己什么？"}
-                  </p>
-                  <div className="mt-3 flex gap-2 justify-end">
-                    <PixelButton onClick={onClose} variant="secondary">
-                      关闭
-                    </PixelButton>
-                    <PixelButton onClick={handleContinue}>继续追问</PixelButton>
+              {/* 反馈卡 */}
+              {phase === "feedback" && feedback && (
+                <FeedbackCard
+                  feedback={feedback}
+                  feedbackLevel={feedbackLevel ?? "hint"}
+                  depthState={depthState ?? "learning"}
+                  onContinue={handleContinue}
+                  onClose={close}
+                />
+              )}
+
+              {/* 原问回响 */}
+              {phase === "final" && (
+                <div className="flex flex-col gap-3">
+                  <div className="font-body text-xl text-[#3a1f0a] leading-snug italic">
+                    {currentNode.mentorPrompts.finalReturn}
                   </div>
+                  <div className="rounded border-4 border-[#6b5b95] bg-[#e8d5f7] p-4">
+                    <div className="font-pixel text-xs text-[#6b5b95] mb-2">终问回响</div>
+                    <div className="font-body text-lg text-[#3a1f0a]">
+                      {currentNode.mysteryQuestion}
+                    </div>
+                  </div>
+                  <PixelButton onClick={close} variant="secondary">
+                    稍后回答
+                  </PixelButton>
                 </div>
-              </div>
-            )}
-
-            {stateLabel && phase === "feedback" && (
-              <div className="mt-3 font-pixel text-xs text-[#3a1f0a]">
-                当前状态：
-                <span className="ml-1 inline-block rounded border-2 border-[#3a1f0a] bg-[#fff8e6] px-2 py-[2px]">
-                  {stateLabel}
-                </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

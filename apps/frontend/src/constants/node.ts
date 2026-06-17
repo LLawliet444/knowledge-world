@@ -1,83 +1,42 @@
-import type { NodeState } from "../types/world";
+/**
+ * 节点状态视觉样式（对齐 PRD §2.1.3 状态定义）
+ */
 
-export interface NodeStyle {
+import type { DepthState } from "../types/world";
+
+export interface NodeVisualStyle {
   haloColor: string;
-  coreColor: string;
-  ringColor: string;
-  label: string;
-  showsFog: boolean;
-  showsHalo: boolean;
-  haloIntensity: number;
+  haloAlpha: number;
+  cursor: "pointer" | "default" | "not-allowed";
+  dimmed: boolean;
 }
 
-export const NODE_STYLES: Record<NodeState, NodeStyle> = {
-  unexplored: {
-    haloColor: "#6b5b95",
-    coreColor: "#3d2f5c",
-    ringColor: "#8e6cff",
-    label: "未探索",
-    showsFog: true,
-    showsHalo: false,
-    haloIntensity: 0,
+export const NODE_VISUAL: Record<DepthState, NodeVisualStyle> = {
+  locked: {
+    haloColor: "#8888aa",
+    haloAlpha: 0.3,
+    cursor: "not-allowed",
+    dimmed: true,
   },
-  visited: {
-    haloColor: "#c8bca8",
-    coreColor: "#5c4f3d",
-    ringColor: "#f5d890",
-    label: "已访问",
-    showsFog: false,
-    showsHalo: false,
-    haloIntensity: 0.2,
+  available: {
+    haloColor: "#ffffff",
+    haloAlpha: 0.35,
+    cursor: "pointer",
+    dimmed: false,
   },
   learning: {
     haloColor: "#f5b642",
-    coreColor: "#d49a20",
-    ringColor: "#ffe39a",
-    label: "理解中",
-    showsFog: false,
-    showsHalo: true,
-    haloIntensity: 0.55,
+    haloAlpha: 0.6,
+    cursor: "pointer",
+    dimmed: false,
   },
-  mastered: {
+  completed: {
     haloColor: "#78d98b",
-    coreColor: "#3f9a4f",
-    ringColor: "#c7f3d0",
-    label: "已掌握",
-    showsFog: false,
-    showsHalo: true,
-    haloIntensity: 0.9,
-  },
-  transfer: {
-    haloColor: "#8e6cff",
-    coreColor: "#6b4fbf",
-    ringColor: "#d4c3ff",
-    label: "迁移应用",
-    showsFog: false,
-    showsHalo: true,
-    haloIntensity: 1.1,
+    haloAlpha: 0.85,
+    cursor: "pointer",
+    dimmed: false,
   },
 };
 
-/**
- * Maps icon type strings (as used in World data) to their image paths.
- * Falls back to node_unknown if the icon is not listed.
- */
-export const NODE_ICONS: Record<string, string> = {
-  cave_painting: "/nodes/node_cave_painting.png",
-  fire: "/nodes/node_fire.png",
-  wheat: "/nodes/node_wheat.png",
-  village: "/nodes/node_village.png",
-  tribe: "/nodes/node_tribe.png",
-  ship: "/nodes/node_ship.png",
-  scale: "/nodes/node_scale.png",
-  coin: "/nodes/node_coin.png",
-  gear: "/nodes/node_gear.png",
-  tool: "/nodes/node_tool.png",
-  scroll: "/nodes/node_scroll.png",
-  brain: "/nodes/node_brain.png",
-  unknown: "/nodes/node_unknown.png",
-};
-
-export function getNodeIcon(iconType: string): string {
-  return NODE_ICONS[iconType] ?? NODE_ICONS.unknown;
-}
+/** 完整通关（nodeClear=true）时的特殊光晕 */
+export const NODE_CLEAR_HALO_COLOR = "#b085f5"; // 紫金色

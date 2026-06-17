@@ -1,33 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-}
-
-body {
-  font-family: "VT323", "Courier New", monospace;
-  -webkit-font-smoothing: antialiased;
+  --color-ink: #1a1226;
+  --color-parchment: #fff8e6;
+  --color-wood: #3a1f0a;
+  --color-gold: #f5b642;
+  --color-ink-purple: #6b5b95;
+  --color-ink-green: #78d98b;
+  --color-ink-blue: #4a3a6b;
 }
 
 @layer base {
-  canvas {
-    image-rendering: pixelated;
+  body {
+    font-family: "VT323", monospace;
+    background: #0a0a1a;
+    color: var(--color-parchment);
+    overflow: hidden;
   }
 }
 
 @layer utilities {
   .font-pixel {
-    font-family: "Press Start 2P", "VT323", "Courier New", monospace;
+    font-family: "Press Start 2P", monospace;
+    image-rendering: pixelated;
   }
+
   .font-body {
-    font-family: "VT323", "Courier New", monospace;
+    font-family: "VT323", monospace;
+    font-size: 1.25rem;
   }
+}
+
+/* 像素风渲染：强制关闭图片平滑 */
+img,
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* 滚动条像素风 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: var(--color-parchment);
+  border: 2px solid var(--color-wood);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-wood);
+  border: 2px solid var(--color-parchment);
 }

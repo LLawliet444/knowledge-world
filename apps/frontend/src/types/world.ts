@@ -1,42 +1,86 @@
+// PRD §2.1.4 节点数据模型新增字段
+// 对齐 backend-tech-design.md 的世界 JSON 结构
+
 export type LayerType = "what" | "how" | "why" | "system";
 
-export type NodeState =
-  | "unexplored"
-  | "visited"
-  | "learning"
-  | "mastered"
-  | "transfer";
+/** 单个深度的理解状态流转 */
+export type DepthState = "locked" | "available" | "learning" | "completed";
+
+/** 原问回响状态 */
+export type FinalQuestionState = "locked" | "available" | "completed";
+
+/** 小场景观看状态 */
+export type IntroSceneState = "unseen" | "seen";
+
+/** What 轻量确认选项 */
+export type WhatCardChoice = "definition" | "example" | "bridge";
+
+// ── 关卡 NPC ──────────────────────────────────────────────────────────────
+
+export interface GateNpc {
+  id: string;
+  title: string;          // "讲故事的人" / "老农夫" 等
+  avatar: string;         // 美术资源路径，如 "/nodes/npc_storyteller.png"
+}
+
+// ── 小场景 ────────────────────────────────────────────────────────────────
+
+export interface IntroScene {
+  sceneText: string;      // 场景描述文案
+  visualHint: string;    // 对应场景目录名，如 "cave_fire"
+  durationSec: number;    // 播放时长（5-8 秒）
+  trigger: "first_enter_what";
+  state: IntroSceneState;
+}
+
+// ── What 翻卡 ─────────────────────────────────────────────────────────────
+
+export interface WhatCard {
+  type: "definition" | "example" | "bridge";
+  text: string;
+}
+
+// ── 老学者引导文案 ────────────────────────────────────────────────────────
+
+export interface MentorPrompts {
+  whatIntro: string;
+  how: string;
+  why: string;
+  system: string;
+  finalReturn: string;
+}
+
+// ── 原问回响 ──────────────────────────────────────────────────────────────
+
+export interface FinalQuestion {
+  source: "mysteryQuestion";
+  state: FinalQuestionState;
+}
+
+// ── 节点（PRD §2.1.4 完整字段）───────────────────────────────────────────
 
 export interface WorldNode {
   id: string;
-  name: string;
-  layer: LayerType;
-  iconType: string;
-  neighbors: string[];
-  sourceExcerpt: string;
-  /** Runtime-only: current understanding level. */
-  state?: NodeState;
-  /** Percentage coordinates (0-100) relative to the map image. */
-  x?: number;
-  y?: number;
+  name: string;           // 节点内部名称（如"认知革命"），地图上不直接显示
+  mysteryQuestion: string; // 地图上代替节点名显示的一句谜题文案
+  gateNpc: GateNpc;       // 关卡 NPC 信息
+  position: { x: number; y: number }; // 节点在地图上的像素坐标（四张地图共用）
+  neighbors: string[];    // 相邻节点 ID 列表
+  nextDiscoveryId: string | null; // 当前节点完成后优先显露的 1 个相邻节点
+  sourceExcerpt: string;  // 原文依据片段
+  introScene: IntroScene;  // 首次进入小场景
+  whatCards: WhatCard[];  // What 层三张翻卡
+  mentorPrompts: MentorPrompts; // 老学者引导文案
+  finalQuestion: FinalQuestion; // 原问回响
 }
 
-export interface WorldLayer {
-  layer: LayerType;
-  biomeName: string;
-  nodes: WorldNode[];
-}
+// ── 世界结构 ──────────────────────────────────────────────────────────────
 
 export interface World {
   worldId: string;
   title: string;
-  subtitle: string;
   biomeTheme: string;
-  /** Path to the background map image. */
-  mapImage: string;
-  /** Character's starting position on the map (percentages). */
-  startPosition: { x: number; y: number };
-  /** First node that is considered "available" from the start. */
-  startNodeId: string;
-  layers: WorldLayer[];
+  startNodeId: string;          // 起始节点 ID
+  nodes: WorldNode[];
+  layers: LayerType[];          // ["what", "how", "why", "system"]
 }
