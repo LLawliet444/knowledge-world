@@ -94,12 +94,6 @@ export const HUD: React.FC = () => {
           <span className="font-pixel text-sm">▲</span>
         </button>
 
-        {/* 当前层标签 */}
-        <div className="flex items-center gap-1 px-2 py-0.5 rounded border-4 border-[#1a1226] bg-[#f5b642] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] font-pixel text-[10px]">
-          <span className="text-xs">{DEPTH_ICONS[currentDepth]}</span>
-          <span>{DEPTH_LABELS[currentDepth]}</span>
-        </div>
-
         {/* 向下按钮 */}
         <button
           onClick={() => {
