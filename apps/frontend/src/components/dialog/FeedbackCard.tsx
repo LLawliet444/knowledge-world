@@ -5,11 +5,11 @@
  */
 
 import React from "react";
-import type { FeedbackCard } from "../../types/feedback";
+import type { FeedbackCard as FeedbackCardData } from "../../types/feedback";
 import { PixelButton } from "../common/PixelButton";
 
 interface FeedbackCardProps {
-  feedback: FeedbackCard;
+  feedback: FeedbackCardData;
   feedbackLevel: string;
   depthState: string;
   onContinue: () => void;
