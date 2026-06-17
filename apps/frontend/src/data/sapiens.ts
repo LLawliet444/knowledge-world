@@ -1,32 +1,32 @@
 import type { World, WorldNode, WorldLayer } from "../types/world";
 
+/**
+ * Node positions are defined as percentages (0–100) relative to the world map
+ * image (world_map_sapiens.jpg). They roughly match visible landmarks on the
+ * map — cave, village, mountain temple, science buildings, DNA tower.
+ */
 const whatNodes: WorldNode[] = [
   {
     id: "n_cog_rev",
     name: "认知革命",
     layer: "what",
     iconType: "cave_painting",
-    neighbors: ["n_fire_control", "n_homo_sapiens"],
+    neighbors: ["n_fire_control"],
     sourceExcerpt:
-      "约七万年前，智人开始拥有虚构故事的能力，这使得他们能突破 150 人的协作上限，建立大规模、灵活的社会网络。",
+      "约七万年前，智人开始拥有虚构故事的能力。这使得他们能突破 150 人的协作上限。",
+    x: 10,
+    y: 78,
   },
   {
     id: "n_fire_control",
     name: "用火控制",
     layer: "what",
     iconType: "fire",
-    neighbors: ["n_cog_rev", "n_homo_sapiens"],
+    neighbors: ["n_cog_rev", "n_agri_rev"],
     sourceExcerpt:
-      "火的控制让人类能食用难以咀嚼的食物，肠道缩短、大脑获得更多能量，并且在夜间提供保护与温暖。",
-  },
-  {
-    id: "n_homo_sapiens",
-    name: "智人扩散",
-    layer: "what",
-    iconType: "tribe",
-    neighbors: ["n_cog_rev", "n_fire_control", "n_agri_rev"],
-    sourceExcerpt:
-      "从东非出发，智人在几万年之内扩散到欧亚大陆、美洲与大洋洲，所到之处大型动物纷纷灭绝。",
+      "火让人类熟食、保暖、驱赶猛兽。肠道缩短，大脑获得更多能量，夜间也能活动。",
+    x: 20,
+    y: 66,
   },
 ];
 
@@ -36,48 +36,47 @@ const howNodes: WorldNode[] = [
     name: "农业革命",
     layer: "how",
     iconType: "wheat",
-    neighbors: ["n_homo_sapiens", "n_village", "n_empire"],
+    neighbors: ["n_fire_control", "n_settlement"],
     sourceExcerpt:
-      "约一万年前，人类从采集转向农耕。小麦等作物驯化了人类，使人口爆炸，但个体未必更幸福。",
+      "约一万年前，人类从采集走向农耕。小麦在中东、水稻在东亚同时被驯化。",
+    x: 36,
+    y: 70,
   },
   {
-    id: "n_village",
+    id: "n_settlement",
     name: "定居与村落",
     layer: "how",
     iconType: "village",
     neighbors: ["n_agri_rev", "n_empire"],
     sourceExcerpt:
-      "固定的住所和粮食储存催生了财产、等级与社会分工，祭司、工匠与武士从农民中分化出来。",
-  },
-  {
-    id: "n_empire",
-    name: "帝国秩序",
-    layer: "how",
-    iconType: "scale",
-    neighbors: ["n_village", "n_religion", "n_money"],
-    sourceExcerpt:
-      "帝国通过共同的法律、语言与虚构故事，把原本敌对的族群纳入同一政治框架下。",
+      "固定住所让财产、等级和分工成为可能。祭司、工匠、武士从农民中分化出来。",
+    x: 52,
+    y: 75,
   },
 ];
 
 const whyNodes: WorldNode[] = [
   {
-    id: "n_money",
-    name: "金钱系统",
+    id: "n_empire",
+    name: "帝国秩序",
     layer: "why",
-    iconType: "coin",
-    neighbors: ["n_empire", "n_religion", "n_science_rev"],
+    iconType: "scroll",
+    neighbors: ["n_settlement", "n_religion"],
     sourceExcerpt:
-      "金钱是人类发明的最成功的互信系统——所有人都愿意相信一张本身毫无价值的纸币。",
+      "通过共同的法律、货币与虚构故事，原本敌对的族群被纳入同一个政治框架。",
+    x: 50,
+    y: 38,
   },
   {
     id: "n_religion",
-    name: "宗教与虚构故事",
+    name: "宗教与虚构",
     layer: "why",
-    iconType: "scroll",
-    neighbors: ["n_empire", "n_money", "n_science_rev"],
+    iconType: "coin",
+    neighbors: ["n_empire", "n_science_rev"],
     sourceExcerpt:
       "宗教通过超自然实体提供道德与社会规范，是早期社会最大规模的协作纽带。",
+    x: 58,
+    y: 30,
   },
 ];
 
@@ -87,26 +86,30 @@ const systemNodes: WorldNode[] = [
     name: "科学革命",
     layer: "system",
     iconType: "gear",
-    neighbors: ["n_money", "n_religion", "n_capitalism"],
+    neighbors: ["n_religion", "n_capitalism"],
     sourceExcerpt:
-      "科学革命的关键不是获得新知识，而是承认自己的无知，并以观察与数学系统地填补无知。",
+      "科学革命的关键不是获得新知识，而是承认自己的无知，并以观察与数学系统填补。",
+    x: 75,
+    y: 52,
   },
   {
     id: "n_capitalism",
-    name: "资本主义与帝国联姻",
+    name: "资本与科学联姻",
     layer: "system",
-    iconType: "ship",
+    iconType: "brain",
     neighbors: ["n_science_rev"],
     sourceExcerpt:
-      "资本、科学与帝国三者相互推动：信用让远征成为可能，远征带来新数据，新数据促进科学，再转化为更多资本。",
+      "信用让远征成为可能，远征带来新数据，新数据滋养科学，再转化为更多资本。",
+    x: 92,
+    y: 22,
   },
 ];
 
 const layers: WorldLayer[] = [
   { layer: "what", biomeName: "认知大草原", nodes: whatNodes },
-  { layer: "how", biomeName: "结构金绿林", nodes: howNodes },
-  { layer: "why", biomeName: "因果石灰原", nodes: whyNodes },
-  { layer: "system", biomeName: "系统紫蓝海", nodes: systemNodes },
+  { layer: "how", biomeName: "农业平原", nodes: howNodes },
+  { layer: "why", biomeName: "统一山脉", nodes: whyNodes },
+  { layer: "system", biomeName: "科学大陆", nodes: systemNodes },
 ];
 
 export const sapiensWorld: World = {
@@ -114,6 +117,8 @@ export const sapiensWorld: World = {
   title: "人类简史",
   subtitle: "从认知革命到资本帝国的认知地图",
   biomeTheme: "history-civilization",
-  layers,
+  mapImage: "/world_map_sapiens.jpg",
   startNodeId: "n_cog_rev",
+  startPosition: { x: 6, y: 85 }, // character stands at bottom-left
+  layers,
 };

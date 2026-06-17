@@ -14,9 +14,9 @@ export interface WorldNode {
   iconType: string;
   neighbors: string[];
   sourceExcerpt: string;
-  /** Runtime state: current understanding level. */
+  /** Runtime-only: current understanding level. */
   state?: NodeState;
-  /** Inferred by MapRenderer; not serialized. */
+  /** Percentage coordinates (0-100) relative to the map image. */
   x?: number;
   y?: number;
 }
@@ -32,6 +32,11 @@ export interface World {
   title: string;
   subtitle: string;
   biomeTheme: string;
-  layers: WorldLayer[];
+  /** Path to the background map image. */
+  mapImage: string;
+  /** Character's starting position on the map (percentages). */
+  startPosition: { x: number; y: number };
+  /** First node that is considered "available" from the start. */
   startNodeId: string;
+  layers: WorldLayer[];
 }
