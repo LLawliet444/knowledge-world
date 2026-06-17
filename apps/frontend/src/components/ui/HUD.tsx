@@ -73,41 +73,49 @@ export const HUD: React.FC = () => {
         </div>
       </div>
 
-      {/* 右下角：深度切换器入口 */}
-      <div className="absolute right-4 bottom-4 z-50 flex flex-col gap-1 items-end">
-        <div className="font-pixel text-[10px] text-[#3a1f0a]/70 mb-1">深度切换</div>
-        <div className="flex flex-col gap-1">
-          {LAYER_ORDER.map((depth) => {
-            const status = getDepthGateStatus(depth, currentDepth, nodeProgress, world);
-            const isActive = depth === currentDepth;
-            const isLocked = status === "locked";
-            const isCompleted = status === "completed";
+      {/* 右下角：深度切换器（简洁上下箭头 */}
+      <div className="absolute right-4 bottom-4 z-50 flex flex-col items-center gap-0.5">
+        <div className="font-pixel text-[10px] text-[#3a1f0a]/70 mb-0.5">深度切换</div>
 
-            return (
-              <button
-                key={depth}
-                onClick={() => handleSwitch(depth)}
-                disabled={isActive || isLocked}
-                className={[
-                  "flex items-center gap-2 px-3 py-1.5 rounded border-4 border-[#1a1226] shadow-[2px_2px_0_0_#1a1226] transition-transform",
-                  "font-pixel text-xs",
-                  isActive
-                    ? "bg-[#f5b642] text-[#1a1226] cursor-default"
-                    : isLocked
-                    ? "bg-[#e8d5f7] text-[#3a1f0a]/40 cursor-not-allowed"
-                    : isCompleted
-                    ? "bg-[#78d98b] text-[#1a1226] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[3px_3px_0_0_#1a1226]"
-                    : "bg-[#fff8e6] text-[#1a1226] hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[3px_3px_0_0_#1a1226]",
-                ].join(" ")}
-              >
-                <span className="text-base">{DEPTH_ICONS[depth]}</span>
-                <span>{DEPTH_LABELS[depth]}</span>
-                {isLocked && <span className="text-xs opacity-60">🔒</span>}
-                {isCompleted && <span className="text-xs">✓</span>}
-              </button>
-            );
-          })}
+        {/* 向上按钮 */}
+        <button
+          onClick={() => {
+            const idx = LAYER_ORDER.indexOf(currentDepth);
+            if (idx > 0) handleSwitch(LAYER_ORDER[idx - 1]);
+          }}
+          disabled={(() => {
+            const idx = LAYER_ORDER.indexOf(currentDepth);
+            if (idx <= 0) return true;
+            const prev = LAYER_ORDER[idx - 1];
+            const prevStatus = getDepthGateStatus(prev, currentDepth, nodeProgress, world);
+            return prevStatus === "locked";
+          })()}
+          className="flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] disabled:bg-[#e8d5f7] disabled:text-[#3a1f0a]/40 disabled:cursor-not-allowed disabled:hover:shadow-[2px_2px_0_0_#1a1226] disabled:hover:translate-x-0 disabled:hover:translate-y-0 active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]">
+          <span className="font-pixel text-sm">▲</span>
+        </button>
+
+        {/* 当前层标签 */}
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded border-4 border-[#1a1226] bg-[#f5b642] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] font-pixel text-[10px]">
+          <span className="text-xs">{DEPTH_ICONS[currentDepth]}</span>
+          <span>{DEPTH_LABELS[currentDepth]}</span>
         </div>
+
+        {/* 向下按钮 */}
+        <button
+          onClick={() => {
+            const idx = LAYER_ORDER.indexOf(currentDepth);
+            if (idx < LAYER_ORDER.length - 1) handleSwitch(LAYER_ORDER[idx + 1]);
+          }}
+          disabled={(() => {
+            const idx = LAYER_ORDER.indexOf(currentDepth);
+            if (idx >= LAYER_ORDER.length - 1) return true;
+            const next = LAYER_ORDER[idx + 1];
+            const nextStatus = getDepthGateStatus(next, currentDepth, nodeProgress, world);
+            return nextStatus === "locked";
+          })()}
+          className="flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] disabled:bg-[#e8d5f7] disabled:text-[#3a1f0a]/40 disabled:cursor-not-allowed disabled:hover:shadow-[2px_2px_0_0_#1a1226] disabled:hover:translate-x-0 disabled:hover:translate-y-0 active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]">
+          <span className="font-pixel text-sm">▼</span>
+        </button>
       </div>
     </>
   );
