@@ -12,6 +12,8 @@ import { useWorldStore } from "../../store/worldStore";
 import { useDialogStore } from "../../store/dialogStore";
 import { useUiStore } from "../../store/uiStore";
 import { getVisibleNodes } from "../../utils/depthGate";
+import { preloadPixiTextures } from "../../utils/preloadTextures";
+import { preloadPixiTextures } from "../../utils/preloadTextures";
 
 import { DepthBackground } from "./DepthBackground";
 import { FogLayer } from "./FogLayer";
@@ -53,6 +55,17 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   const [activeNode, setActiveNode] = useState<WorldNode | null>(null);
 
   const posProxy = useRef({ x: scholarPos.x, y: scholarPos.y });
+
+  // 预加载 PixiJS 纹理（只需加载一次）
+  useEffect(() => {
+    if (!world) return;
+    const avatarPaths = world.nodes.map((n) => n.gateNpc.avatar);
+    const sceneKeys = world.nodes
+      .map((n) => n.introScene.visualHint)
+      .filter(Boolean);
+    preloadPixiTextures(avatarPaths, sceneKeys);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 世界切换时重置学者位置
   useEffect(() => {
