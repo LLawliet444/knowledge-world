@@ -23,7 +23,7 @@ export const sapiensWorld: World = {
         title: "讲故事的人",
         avatar: "/nodes/npc_storyteller.png",
       },
-      position: { x: 180, y: 420 },
+      position: { x: 200, y: 780 },
       neighbors: ["n_fire_ctrl", "n_agri_rev"],
       nextDiscoveryId: "n_fire_ctrl",
       sourceExcerpt:
@@ -69,7 +69,7 @@ export const sapiensWorld: World = {
         title: "持火者",
         avatar: "/nodes/npc_fire.png",
       },
-      position: { x: 340, y: 320 },
+      position: { x: 420, y: 680 },
       neighbors: ["n_cog_rev", "n_agri_rev"],
       nextDiscoveryId: "n_agri_rev",
       sourceExcerpt:
@@ -115,7 +115,7 @@ export const sapiensWorld: World = {
         title: "老农夫",
         avatar: "/nodes/npc_farmer.png",
       },
-      position: { x: 520, y: 480 },
+      position: { x: 640, y: 780 },
       neighbors: ["n_fire_ctrl", "n_money", "n_writing"],
       nextDiscoveryId: "n_money",
       sourceExcerpt:
@@ -161,7 +161,7 @@ export const sapiensWorld: World = {
         title: "商人",
         avatar: "/nodes/npc_merchant.png",
       },
-      position: { x: 680, y: 360 },
+      position: { x: 860, y: 660 },
       neighbors: ["n_agri_rev", "n_imagined_order"],
       nextDiscoveryId: "n_imagined_order",
       sourceExcerpt:
@@ -207,7 +207,7 @@ export const sapiensWorld: World = {
         title: "石碑书记",
         avatar: "/nodes/npc_scribe.png",
       },
-      position: { x: 860, y: 260 },
+      position: { x: 1080, y: 520 },
       neighbors: ["n_money", "n_empire"],
       nextDiscoveryId: "n_empire",
       sourceExcerpt:
@@ -253,7 +253,7 @@ export const sapiensWorld: World = {
         title: "帝王使者",
         avatar: "/nodes/npc_emperor.png",
       },
-      position: { x: 1020, y: 380 },
+      position: { x: 1300, y: 680 },
       neighbors: ["n_imagined_order", "n_sci_rev"],
       nextDiscoveryId: "n_sci_rev",
       sourceExcerpt:
@@ -299,7 +299,7 @@ export const sapiensWorld: World = {
         title: "观星者",
         avatar: "/nodes/npc_astronomer.png",
       },
-      position: { x: 1180, y: 220 },
+      position: { x: 1520, y: 520 },
       neighbors: ["n_empire", "n_capitalism"],
       nextDiscoveryId: "n_capitalism",
       sourceExcerpt:
@@ -345,7 +345,7 @@ export const sapiensWorld: World = {
         title: "银行家",
         avatar: "/nodes/npc_capitalist.png",
       },
-      position: { x: 1340, y: 300 },
+      position: { x: 1740, y: 620 },
       neighbors: ["n_sci_rev"],
       nextDiscoveryId: null,
       sourceExcerpt:
