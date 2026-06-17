@@ -53,6 +53,18 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   const [revealingPos, setRevealingPos] = useState<{ x: number; y: number } | null>(null);
   const [activeNode, setActiveNode] = useState<WorldNode | null>(null);
 
+  // —— cover 模式：等比缩放铺满整个窗口 ——
+  const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight });
+  const stageScale = Math.max(viewport.w / MAP_WIDTH, viewport.h / MAP_HEIGHT);
+  const scaledWidth = MAP_WIDTH * stageScale;
+  const scaledHeight = MAP_HEIGHT * stageScale;
+
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const posProxy = useRef({ x: scholarPos.x, y: scholarPos.y });
 
   // 预加载 PixiJS 纹理（只需加载一次）
@@ -86,7 +98,7 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     ? getVisibleNodes(currentDepth, world, nodeProgress)
     : new Set<string>();
 
-  // —— 浓雾挖洞节点：当前深度下 state != "locked" 的节点 + 学者位置 ——
+  // —— 浓雾挖洞节点：当前深度下 state != "locked" 的节点 ——
   const fogClearNodes = world
     ? world.nodes
         .filter((n) => {
@@ -180,63 +192,87 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   return (
     <div
       className="world-map-container"
-      style={{ position: "relative", width: "100%", height: "100%" }}
+      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}
     >
-      <Stage
-        width={MAP_WIDTH}
-        height={MAP_HEIGHT}
-        className="world-map-canvas"
-        options={{ background: 0xf4d37a }}
+      {/* PixiJS Stage，用 CSS transform 等比缩放铺满整个窗口（cover 模式） */}
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: MAP_WIDTH,
+          height: MAP_HEIGHT,
+          transform: `translate(-50%, -50%) scale(${stageScale})`,
+          transformOrigin: "center center",
+        }}
       >
-        <Container scale={1}>
-          <DepthBackground
-            currentDepth={currentDepth}
-            targetDepth={switchingTargetDepth}
-            isSwitching={isSwitchingDepth}
-            onSwitchComplete={handleDepthSwitchComplete}
-          />
-
-          {world.nodes.map((node) => {
-            const progress = nodeProgress[node.id];
-            const depthState = progress?.[currentDepth] ?? "locked";
-            return (
-              <NodeSprite
-                key={node.id}
-                node={node}
-                state={depthState}
-                isCurrent={node.id === currentNodeId}
-                nodeClear={progress?.nodeClear ?? false}
-                onClick={handleNodeClick}
-              />
-            );
-          })}
-
-          <ScholarSprite
-            x={scholarPos.x}
-            y={scholarPos.y}
-            direction={scholarDir}
-            isWalking={isWalking}
-          />
-
-          {isPlayingScene && activeSceneKey && activeNode && (
-            <SmallScene
-              sceneKey={activeSceneKey}
-              sceneText={activeNode.introScene.sceneText}
-              durationSec={activeNode.introScene.durationSec}
-              onComplete={handleSceneComplete}
+        <Stage
+          width={MAP_WIDTH}
+          height={MAP_HEIGHT}
+          className="world-map-canvas"
+          options={{ background: 0xf4d37a }}
+        >
+          <Container scale={1}>
+            <DepthBackground
+              currentDepth={currentDepth}
+              targetDepth={switchingTargetDepth}
+              isSwitching={isSwitchingDepth}
+              onSwitchComplete={handleDepthSwitchComplete}
             />
-          )}
-        </Container>
-      </Stage>
 
-      {/* 浓雾层：HTML Canvas，覆盖在地图 Stage 上面（但在对话框之下） */}
-      <FogLayer
-        visibleNodes={fogClearNodes}
-        lockedNodes={lockedNodes}
-        scholarPos={scholarPos}
-        revealingNode={revealingPos ?? undefined}
-        onRevealComplete={() => setRevealingPos(null)}
-      />
+            {world.nodes.map((node) => {
+              const progress = nodeProgress[node.id];
+              const depthState = progress?.[currentDepth] ?? "locked";
+              return (
+                <NodeSprite
+                  key={node.id}
+                  node={node}
+                  state={depthState}
+                  isCurrent={node.id === currentNodeId}
+                  nodeClear={progress?.nodeClear ?? false}
+                  onClick={handleNodeClick}
+                />
+              );
+            })}
+
+            <ScholarSprite
+              x={scholarPos.x}
+              y={scholarPos.y}
+              direction={scholarDir}
+              isWalking={isWalking}
+            />
+
+            {isPlayingScene && activeSceneKey && activeNode && (
+              <SmallScene
+                sceneKey={activeSceneKey}
+                sceneText={activeNode.introScene.sceneText}
+                durationSec={activeNode.introScene.durationSec}
+                onComplete={handleSceneComplete}
+              />
+            )}
+          </Container>
+        </Stage>
+
+        {/* 浓雾层：同样 cover 模式等比缩放，与 Stage 对齐 */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: MAP_WIDTH,
+            height: MAP_HEIGHT,
+            pointerEvents: "none",
+          }}
+        >
+          <FogLayer
+            visibleNodes={fogClearNodes}
+            lockedNodes={lockedNodes}
+            scholarPos={scholarPos}
+            revealingNode={revealingPos ?? undefined}
+            onRevealComplete={() => setRevealingPos(null)}
+          />
+        </div>
+      </div>
     </div>
   );
 };
