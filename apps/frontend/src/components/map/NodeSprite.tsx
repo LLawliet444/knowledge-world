@@ -54,7 +54,7 @@ export const NodeSprite: React.FC<NodeSpriteProps> = ({
       eventMode={eventMode}
       cursor={cursor}
       interactive={eventMode === "static"}
-      onclick={handleClick}
+      click={handleClick}
     >
       {/* 光晕 */}
       {haloTexture && (
@@ -88,14 +88,14 @@ export const NodeSprite: React.FC<NodeSpriteProps> = ({
         text={node.mysteryQuestion}
         anchor={0.5}
         y={50}
-        style={{
+        style={new PIXI.TextStyle({
           fontFamily: "Press Start 2P, monospace",
           fontSize: 9,
           fill: 0x1a1226,
           wordWrap: true,
           wordWrapWidth: 160,
           align: "center",
-        }}
+        })}
       />
     </Container>
   );
