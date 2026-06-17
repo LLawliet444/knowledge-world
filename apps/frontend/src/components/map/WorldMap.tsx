@@ -164,7 +164,11 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   if (!world) return null;
 
   return (
-    <Stage width={MAP_WIDTH} height={MAP_HEIGHT} background={0xf4d37a}>
+    <Stage
+      width={MAP_WIDTH}
+      height={MAP_HEIGHT}
+      options={{ background: 0xf4d37a }}
+    >
       <Container scale={1}>
         <DepthBackground
           currentDepth={currentDepth}
