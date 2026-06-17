@@ -125,8 +125,8 @@ export const DialogBox: React.FC = () => {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4 pointer-events-none">
-      <div
-        className="pointer-events-auto w-full max-w-5xl"
+        <div
+        className="pointer-events-auto w-full max-w-5xl relative"
         style={{
           backgroundImage: "url(/ui/dialogue/dialogue_box_frame.png)",
           backgroundRepeat: "no-repeat",
@@ -136,6 +136,15 @@ export const DialogBox: React.FC = () => {
           color: "#3a1f0a",
         }}
       >
+        {/* 右上角关闭按钮（所有阶段都可见） */}
+        <button
+          onClick={close}
+          aria-label="关闭对话框"
+          className="absolute -top-2 -right-2 flex items-center justify-center font-pixel text-lg text-[#fff8e6] border-4 border-[#3a1f0a] bg-[#6b3a1f] hover:bg-[#8b4a2f] active:translate-y-[1px] rounded shadow-[3px_3px_0_0_#3a1f0a] active:shadow-[2px_2px_0_0_#3a1f0a]"
+          style={{ width: 36, height: 36 }}
+        >
+          ✕
+        </button>
         <div className="flex gap-5 items-stretch">
           {/* 左侧：NPC + 老学者 */}
           <div className="flex-shrink-0 flex flex-col items-center gap-2" style={{ width: 130 }}>
