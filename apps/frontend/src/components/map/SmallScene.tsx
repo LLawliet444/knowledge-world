@@ -56,7 +56,18 @@ export const SmallScene: React.FC<SmallSceneProps> = ({
     }
   }, []);
 
-  const bgTexture = PIXI.utils.TextureCache[getSceneAsset(sceneKey, "cave_bg.png")];
+    // 根据场景 key 匹配正确的背景图文件名
+  const SCENE_BG_MAP: Record<string, string> = {
+    cave_fire: "cave_bg.png",
+    empire_gate: "empire_bg.png",
+    grain_field: "field_bg.png",
+    market_trade: "market_bg.png",
+    stargazing: "stargazing_bg.png",
+    stone_law: "stone_bg.png",
+    temple_myth: "temple_bg.png",
+  };
+  const bgFile = SCENE_BG_MAP[sceneKey] ?? "cave_bg.png";
+  const bgTexture = PIXI.utils.TextureCache[getSceneAsset(sceneKey, bgFile)];
   const focusTexture = PIXI.utils.TextureCache[getSceneAsset(sceneKey, "focus_symbol.png")];
 
   return (
@@ -95,14 +106,14 @@ export const SmallScene: React.FC<SmallSceneProps> = ({
         text={sceneText}
         anchor={0.5}
         y={200}
-        style={{
+        style={new PIXI.TextStyle({
           fontFamily: "VT323, monospace",
           fontSize: 24,
           fill: 0xfff8e6,
           wordWrap: true,
           wordWrapWidth: 700,
           align: "center",
-        }}
+        })}
       />
 
       {/* 底部装饰：场景名 */}
@@ -110,12 +121,12 @@ export const SmallScene: React.FC<SmallSceneProps> = ({
         text={`「${sceneKey}」场景`}
         anchor={0.5}
         y={480}
-        style={{
+        style={new PIXI.TextStyle({
           fontFamily: "Press Start 2P, monospace",
           fontSize: 10,
           fill: 0xf5b642,
           align: "center",
-        }}
+        })}
       />
     </Container>
   );
