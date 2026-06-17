@@ -86,9 +86,24 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     ? getVisibleNodes(currentDepth, world, nodeProgress)
     : new Set<string>();
 
+  // —— 浓雾挖洞节点：当前深度下 state != "locked" 的节点 + 学者位置 ——
+  const fogClearNodes = world
+    ? world.nodes
+        .filter((n) => {
+          const progress = nodeProgress[n.id];
+          const depthState = progress?.[currentDepth] ?? "locked";
+          return depthState !== "locked";
+        })
+        .map((n) => ({ x: n.position.x, y: n.position.y }))
+    : [];
+
   const lockedNodes = world
     ? world.nodes
-        .filter((n) => !visibleIds.has(n.id))
+        .filter((n) => {
+          const progress = nodeProgress[n.id];
+          const depthState = progress?.[currentDepth] ?? "locked";
+          return depthState === "locked";
+        })
         .map((n) => ({ x: n.position.x, y: n.position.y }))
     : [];
 
@@ -163,58 +178,66 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   if (!world) return null;
 
   return (
-    <Stage
-      width={MAP_WIDTH}
-      height={MAP_HEIGHT}
-      className="world-map-canvas"
-      options={{ background: 0xf4d37a }}
+    <div
+      className="world-map-container"
+      style={{ position: "relative", width: "100%", height: "100%" }}
     >
-      <Container scale={1}>
-        <DepthBackground
-          currentDepth={currentDepth}
-          targetDepth={switchingTargetDepth}
-          isSwitching={isSwitchingDepth}
-          onSwitchComplete={handleDepthSwitchComplete}
-        />
-
-        <FogLayer
-          lockedNodes={lockedNodes}
-          revealingNode={revealingPos ?? undefined}
-          onRevealComplete={() => setRevealingPos(null)}
-        />
-
-        {world.nodes.map((node) => {
-          const progress = nodeProgress[node.id];
-          const depthState = progress?.[currentDepth] ?? "locked";
-          return (
-            <NodeSprite
-              key={node.id}
-              node={node}
-              state={depthState}
-              isCurrent={node.id === currentNodeId}
-              nodeClear={progress?.nodeClear ?? false}
-              onClick={handleNodeClick}
-            />
-          );
-        })}
-
-        <ScholarSprite
-          x={scholarPos.x}
-          y={scholarPos.y}
-          direction={scholarDir}
-          isWalking={isWalking}
-        />
-
-        {isPlayingScene && activeSceneKey && activeNode && (
-          <SmallScene
-            sceneKey={activeSceneKey}
-            sceneText={activeNode.introScene.sceneText}
-            durationSec={activeNode.introScene.durationSec}
-            onComplete={handleSceneComplete}
+      <Stage
+        width={MAP_WIDTH}
+        height={MAP_HEIGHT}
+        className="world-map-canvas"
+        options={{ background: 0xf4d37a }}
+      >
+        <Container scale={1}>
+          <DepthBackground
+            currentDepth={currentDepth}
+            targetDepth={switchingTargetDepth}
+            isSwitching={isSwitchingDepth}
+            onSwitchComplete={handleDepthSwitchComplete}
           />
-        )}
-      </Container>
-    </Stage>
+
+          {world.nodes.map((node) => {
+            const progress = nodeProgress[node.id];
+            const depthState = progress?.[currentDepth] ?? "locked";
+            return (
+              <NodeSprite
+                key={node.id}
+                node={node}
+                state={depthState}
+                isCurrent={node.id === currentNodeId}
+                nodeClear={progress?.nodeClear ?? false}
+                onClick={handleNodeClick}
+              />
+            );
+          })}
+
+          <ScholarSprite
+            x={scholarPos.x}
+            y={scholarPos.y}
+            direction={scholarDir}
+            isWalking={isWalking}
+          />
+
+          {isPlayingScene && activeSceneKey && activeNode && (
+            <SmallScene
+              sceneKey={activeSceneKey}
+              sceneText={activeNode.introScene.sceneText}
+              durationSec={activeNode.introScene.durationSec}
+              onComplete={handleSceneComplete}
+            />
+          )}
+        </Container>
+      </Stage>
+
+      {/* 浓雾层：HTML Canvas，覆盖在地图 Stage 上面（但在对话框之下） */}
+      <FogLayer
+        visibleNodes={fogClearNodes}
+        lockedNodes={lockedNodes}
+        scholarPos={scholarPos}
+        revealingNode={revealingPos ?? undefined}
+        onRevealComplete={() => setRevealingPos(null)}
+      />
+    </div>
   );
 };
 

@@ -41,7 +41,7 @@ export const HUD: React.FC = () => {
   return (
     <>
       {/* 右上角：迷雾消散百分比 */}
-      <div className="absolute right-4 top-4 z-20 flex flex-col items-end gap-1">
+      <div className="absolute right-4 top-4 z-50 flex flex-col items-end gap-1">
         <div
           className="rounded border-4 border-[#1a1226] bg-[#fff8e6]/90 px-3 py-1 shadow-[3px_3px_0_0_#1a1226]"
         >
@@ -62,7 +62,7 @@ export const HUD: React.FC = () => {
       </div>
 
       {/* 左上角：世界标题 */}
-      <div className="absolute left-4 top-4 z-20">
+      <div className="absolute left-4 top-4 z-50">
         <div className="rounded border-4 border-[#1a1226] bg-[#fff8e6]/90 px-3 py-1 shadow-[3px_3px_0_0_#1a1226]">
           <div className="font-pixel text-xs text-[#1a1226] leading-tight">
             {world.title}
@@ -73,8 +73,8 @@ export const HUD: React.FC = () => {
         </div>
       </div>
 
-      {/* 右上角：深度切换器入口 */}
-      <div className="absolute right-4 bottom-4 z-20 flex flex-col gap-1 items-end">
+      {/* 右下角：深度切换器入口 */}
+      <div className="absolute right-4 bottom-4 z-50 flex flex-col gap-1 items-end">
         <div className="font-pixel text-[10px] text-[#3a1f0a]/70 mb-1">深度切换</div>
         <div className="flex flex-col gap-1">
           {LAYER_ORDER.map((depth) => {
