@@ -4,13 +4,13 @@
  * 使用 Stage 作为根组件，内部通过 Container 放置地图元素。
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Container, Graphics } from "@pixi/react";
+import { Container, Graphics, Stage } from "@pixi/react";
 import gsap from "gsap";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useWorldStore } from "../../store/worldStore";
 import { useDialogStore } from "../../store/dialogStore";
 import { useUiStore } from "../../store/uiStore";
+import { useWorldStore } from "../../store/worldStore";
 import { getVisibleNodes } from "../../utils/depthGate";
 import { preloadPixiTextures } from "../../utils/preloadTextures";
 
@@ -82,18 +82,11 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   // 世界切换时重置学者位置
   useEffect(() => {
     if (!world) return;
-    const start = world.nodes.find((n) => n.id === world.startNodeId);
-    if (start) {
-      posProxy.current = { x: start.position.x, y: start.position.y };
-      moveScholar(start.position.x, start.position.y);
-      setCurrentNodeId(world.startNodeId);
-    }
+    posProxy.current.x = world.scholarStart.x;
+    posProxy.current.y = world.scholarStart.y;
+    moveScholar(world.scholarStart.x, world.scholarStart.y);
+    setCurrentNodeId(world.startNodeId);
   }, [world?.worldId]);
-
-  // 同步 posProxy
-  useEffect(() => {
-    posProxy.current = { x: scholarPos.x, y: scholarPos.y };
-  }, [scholarPos]);
 
   const visibleIds = world
     ? getVisibleNodes(currentDepth, world, nodeProgress)
@@ -126,8 +119,12 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
 
       const fromX = posProxy.current.x;
       const fromY = posProxy.current.y;
-      const dx = node.position.x - fromX;
-      const dy = node.position.y - fromY;
+
+      // 目标位置：节点左下方（学者站在节点旁边，面朝节点）
+      const targetX = node.position.x - 100;
+      const targetY = node.position.y + 30;
+      const dx = targetX - fromX;
+      const dy = targetY - fromY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       const horizontalDominant = Math.abs(dx) > Math.abs(dy);
@@ -139,11 +136,12 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
       setIsWalking(true);
       setCurrentNodeId(node.id);
 
-      const duration = Math.max(0.8, dist / 10);
+      // 速度：每 150 像素约 1 秒，距离 400 像素约 2.7 秒
+      const duration = Math.max(0.5, dist / 150);
 
       gsap.to(posProxy.current, {
-        x: node.position.x,
-        y: node.position.y,
+        x: targetX,
+        y: targetY,
         duration,
         ease: "none",
         onUpdate: () => {

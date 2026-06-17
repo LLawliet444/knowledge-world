@@ -10,6 +10,7 @@ export const economicsWorld: World = {
   title: "经济学原理",
   biomeTheme: "social-science",
   startNodeId: "n_scarcity",
+  scholarStart: { x: 60, y: 1020 },
   layers: ["what", "how", "why", "system"],
 
   nodes: [

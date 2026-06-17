@@ -10,6 +10,7 @@ export const sapiensWorld: World = {
   title: "人类简史",
   biomeTheme: "history-civilization",
   startNodeId: "n_cog_rev",
+  scholarStart: { x: 80, y: 800 },
   layers: ["what", "how", "why", "system"],
 
   nodes: [

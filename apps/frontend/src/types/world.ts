@@ -82,6 +82,7 @@ export interface World {
   title: string;
   biomeTheme: string;
   startNodeId: string;          // 起始节点 ID
+  scholarStart: { x: number; y: number }; // 学者在地图上的独立起始坐标（不依赖节点位置）
   nodes: WorldNode[];
   layers: LayerType[];          // ["what", "how", "why", "system"]
 }

@@ -157,7 +157,7 @@ function drawFogFrame(
 
   // 6) 学者洞（较大，让学者和附近的路径可见）
   {
-    const r = 150;
+    const r = 300;
     const grad = ctx.createRadialGradient(
       scholarPos.x,
       scholarPos.y,

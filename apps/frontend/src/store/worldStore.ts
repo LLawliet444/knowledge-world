@@ -74,16 +74,13 @@ export const useWorldStore = create<WorldState & WorldActions>((set, get) => ({
   switchingTargetDepth: null,
 
   loadWorld: (world) => {
-    const startNode = world.nodes.find((n) => n.id === world.startNodeId);
     const progress = buildInitialProgress(world);
     set({
       world,
       nodeProgress: progress,
       currentDepth: "what",
       fogPercentage: calcFogPercentage(world, progress),
-      scholarPos: startNode
-        ? { x: startNode.position.x, y: startNode.position.y }
-        : { x: 0, y: 0 },
+      scholarPos: { x: world.scholarStart.x, y: world.scholarStart.y },
     });
   },
 
