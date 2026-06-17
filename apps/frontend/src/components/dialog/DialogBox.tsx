@@ -23,6 +23,7 @@ export const DialogBox: React.FC = () => {
     depth,
     round,
     question,
+    followups,
     feedback,
     feedbackLevel,
     depthState,
@@ -106,7 +107,9 @@ export const DialogBox: React.FC = () => {
   const handleContinue = useCallback(() => {
     nextRound();
     setAnswer("");
-  }, [nextRound]);
+    // 将 phase 重置为 loading，触发下一轮提问
+    setLoading();
+  }, [nextRound, setLoading]);
 
   // 深度标签文字
   const depthLabel =
@@ -208,14 +211,14 @@ export const DialogBox: React.FC = () => {
                   <div className="font-body text-xl text-[#3a1f0a] leading-snug">
                     {question}
                   </div>
-                  {question.followups[0] && (
+                  {followups?.[0] && (
                     <div className="font-body text-base text-[#3a1f0a]/70 italic">
-                      💬 {question.followups[0]}
+                      💬 {followups?.[0]}
                     </div>
                   )}
-                  {question.followups[1] && (
+                  {followups?.[1] && (
                     <div className="font-body text-base text-[#3a1f0a]/70 italic">
-                      💬 {question.followups[1]}
+                      💬 {followups?.[1]}
                     </div>
                   )}
                   <textarea
