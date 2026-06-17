@@ -13,7 +13,6 @@ import { useDialogStore } from "../../store/dialogStore";
 import { useUiStore } from "../../store/uiStore";
 import { getVisibleNodes } from "../../utils/depthGate";
 import { preloadPixiTextures } from "../../utils/preloadTextures";
-import { preloadPixiTextures } from "../../utils/preloadTextures";
 
 import { DepthBackground } from "./DepthBackground";
 import { FogLayer } from "./FogLayer";
