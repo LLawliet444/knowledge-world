@@ -1,7 +1,10 @@
 /**
- * 四段式诊断反馈卡
+ * 四段式诊断反馈卡 —— 星露谷像素风
  *
- * PRD §4.2.6：已理解 / 还缺一点 / 提示 / 下一问
+ * 四张卡片：你已理解 / 还缺一点 / 提示 / 下一问（或完成）
+ * 风格参考 index.html sd-board + sd-btn：
+ *   - 羊皮纸底 + 双层木边框 + 金色内框
+ *   - 每张卡片用不同底色表达语义（绿/橙/紫/绿）
  */
 
 import React from "react";
@@ -16,9 +19,82 @@ interface FeedbackCardProps {
   onClose: () => void;
 }
 
+// 每个卡片的颜色语义
+const THEMES = {
+  understood: {
+    bg: "#dff0e4",       // 嫩绿（理解了）
+    border: "#5d9c3f",
+    outer: "#97e65e",
+    label: "✅ 你已理解",
+  },
+  missing: {
+    bg: "#fbe3b4",       // 暖橙（还缺一点）
+    border: "#b56c27",
+    outer: "#eeb069",
+    label: "💡 还缺一点",
+  },
+  hint: {
+    bg: "#e8d5f7",       // 紫（提示）
+    border: "#6b5b95",
+    outer: "#b9a8d8",
+    label: "🔍 提示",
+  },
+  next: {
+    bg: "#dff0e4",       // 嫩绿（下一问 / 完成）
+    border: "#5d9c3f",
+    outer: "#97e65e",
+    label: "🔄 下一问",
+  },
+} as const;
+
+const cardStyle = (theme: keyof typeof THEMES): React.CSSProperties => {
+  const t = THEMES[theme];
+  return {
+    position: "relative",
+    backgroundColor: t.bg,
+    border: `4px solid ${t.border}`,
+    boxShadow: `0 0 0 4px ${t.outer}`,
+    padding: 12,
+    fontFamily: "'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace",
+    color: "#492310",
+  };
+};
+
+const labelStyle = (theme: keyof typeof THEMES): React.CSSProperties => {
+  const t = THEMES[theme];
+  return {
+    position: "absolute",
+    top: -14,
+    left: 12,
+    backgroundColor: t.border,
+    color: "#ffffff",
+    padding: "2px 10px",
+    border: `3px solid #492310`,
+    fontFamily: "'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace",
+    fontSize: 12,
+    textShadow: "2px 2px 0px #492310",
+    boxShadow: "0 2px 0 rgba(0,0,0,0.2)",
+  };
+};
+
+const bodyText: React.CSSProperties = {
+  fontSize: 14,
+  color: "#492310",
+  lineHeight: 1.5,
+  paddingTop: 8,
+};
+
+const bulletList: React.CSSProperties = {
+  paddingLeft: 16,
+  margin: 0,
+  fontSize: 14,
+  color: "#492310",
+  lineHeight: 1.6,
+  paddingTop: 8,
+};
+
 export const FeedbackCard: React.FC<FeedbackCardProps> = ({
   feedback,
-  feedbackLevel,
   depthState,
   onContinue,
   onClose,
@@ -26,78 +102,101 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
   const isCompleted = depthState === "completed";
 
   return (
-    <div className="grid gap-3 w-full md:grid-cols-2">
-      {/* 已理解 */}
-      <div className="rounded border-4 border-[#3a1f0a] bg-[#dff0e4] p-4 shadow-[3px_3px_0_0_#3a1f0a]">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">✅</span>
-          <span className="font-pixel text-xs text-[#1a1226]">你已理解</span>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: 16,
+        width: "100%",
+        paddingTop: 8,
+      }}
+    >
+      {/* 1. 已理解 */}
+      <div style={{ position: "relative" }}>
+        <div style={labelStyle("understood")}>{THEMES.understood.label}</div>
+        <div style={cardStyle("understood")}>
+          <ul style={bulletList}>
+            {(feedback.understood ?? []).map((s: string, i: number) => (
+              <li key={i} style={{ marginBottom: 2 }}>
+                {s}
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="list-disc list-inside font-body text-base text-[#1a1226] space-y-1">
-          {(feedback.understood ?? []).map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-        </ul>
       </div>
 
-      {/* 还缺一点 */}
-      <div className="rounded border-4 border-[#3a1f0a] bg-[#fbe3b4] p-4 shadow-[3px_3px_0_0_#3a1f0a]">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">💡</span>
-          <span className="font-pixel text-xs text-[#1a1226]">还缺一点</span>
+      {/* 2. 还缺一点 */}
+      <div style={{ position: "relative" }}>
+        <div style={labelStyle("missing")}>{THEMES.missing.label}</div>
+        <div style={cardStyle("missing")}>
+          <ul style={bulletList}>
+            {(feedback.missing ?? []).map((s: string, i: number) => (
+              <li key={i} style={{ marginBottom: 2 }}>
+                {s}
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="list-disc list-inside font-body text-base text-[#1a1226] space-y-1">
-          {(feedback.missing ?? []).map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-        </ul>
       </div>
 
-      {/* 提示 */}
-      <div className="rounded border-4 border-[#3a1f0a] bg-[#e8d5f7] p-4 shadow-[3px_3px_0_0_#3a1f0a]">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">
-            {feedbackLevel === "minimal_explain" ? "📖" : "🔍"}
-          </span>
-          <span className="font-pixel text-xs text-[#1a1226]">提示</span>
+      {/* 3. 提示 */}
+      <div style={{ position: "relative" }}>
+        <div style={labelStyle("hint")}>{THEMES.hint.label}</div>
+        <div style={cardStyle("hint")}>
+          <div style={bodyText}>{feedback.guidance}</div>
         </div>
-        <p className="font-body text-base text-[#1a1226] leading-snug">
-          {feedback.guidance}
-        </p>
       </div>
 
-      {/* 下一问 / 完成 */}
-      <div className="rounded border-4 border-[#3a1f0a] bg-[#dff0e4] p-4 shadow-[3px_3px_0_0_#3a1f0a] flex flex-col">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">{isCompleted ? "🎉" : "🔄"}</span>
-          <span className="font-pixel text-xs text-[#1a1226]">
-            {isCompleted ? "已掌握！" : "下一问"}
-          </span>
+      {/* 4. 下一问 / 完成 */}
+      <div style={{ position: "relative" }}>
+        <div style={labelStyle("next")}>
+          {isCompleted ? "🎉 已掌握！" : THEMES.next.label}
         </div>
-        {isCompleted ? (
-          <div className="flex-1 flex flex-col justify-between gap-3">
-            <p className="font-body text-base text-[#1a1226]">
-              这一层的核心你已经掌握！迷雾散去了一部分——
-              对前一个节点的理解让你看见了相邻的问题。
-            </p>
-            <PixelButton onClick={onClose} variant="primary">
-              继续探索
-            </PixelButton>
-          </div>
-        ) : (
-          <p className="font-body text-base text-[#1a1226] leading-snug">
-            {feedback.next_question}
-          </p>
-        )}
+        <div
+          style={{
+            ...cardStyle("next"),
+            minHeight: 100,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          {isCompleted ? (
+            <>
+              <div style={bodyText}>
+                这一层的核心你已经掌握！迷雾散去了一部分——
+                对前一个节点的理解让你看见了相邻的问题。
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <PixelButton onClick={onClose} variant="success">
+                  继续探索
+                </PixelButton>
+              </div>
+            </>
+          ) : (
+            <div style={bodyText}>{feedback.next_question}</div>
+          )}
+        </div>
       </div>
 
-      {/* 底部：继续追问 / 关闭 */}
+      {/* 底部：继续追问 / 稍后回来（未完成态才显示） */}
       {!isCompleted && (
-        <div className="md:col-span-2 flex justify-end gap-2 mt-1">
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            marginTop: 4,
+          }}
+        >
           <PixelButton onClick={onClose} variant="secondary">
             稍后回来
           </PixelButton>
-          <PixelButton onClick={onContinue}>继续追问</PixelButton>
+          <PixelButton onClick={onContinue} variant="primary">
+            继续追问
+          </PixelButton>
         </div>
       )}
     </div>

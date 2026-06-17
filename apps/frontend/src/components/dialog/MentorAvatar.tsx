@@ -1,11 +1,12 @@
 /**
- * 老学者头像 / 半身立绘组件
+ * 老学者头像 —— 星露谷像素风
+ *
+ * 双层木边框 + 内描边阴影
  */
 
 import React from "react";
 
 interface MentorAvatarProps {
-  /** "avatar" = 头像，"half_body" = 半身立绘 */
   variant?: "avatar" | "half_body";
   size?: number;
 }
@@ -13,16 +14,26 @@ interface MentorAvatarProps {
 const SRC_MAP = {
   avatar: "/characters/mentor_old_scholar.png",
   half_body: "/characters/mentor_old_scholar_half_body.png",
-};
+} as const;
 
 export const MentorAvatar: React.FC<MentorAvatarProps> = ({
   variant = "avatar",
-  size = 96,
+  size = 72,
 }) => {
+  const outerSize = size + 16;
+
   return (
     <div
-      className="flex items-center justify-center border-4 border-[#3a1f0a] rounded bg-[#fff8e6] shadow-[3px_3px_0_0_#3a1f0a] flex-shrink-0"
-      style={{ width: size + 16, height: size + 16 }}
+      style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: outerSize,
+      height: outerSize,
+      backgroundColor: "#fff7e6",
+      border: "4px solid #b56c27",
+      boxShadow: "0 0 0 4px #eeb069",
+    }}
     >
       <img
         src={SRC_MAP[variant]}
@@ -35,7 +46,7 @@ export const MentorAvatar: React.FC<MentorAvatarProps> = ({
         }}
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).outerHTML =
-            '<span style="font-size:48px;line-height:1;">🧙</span>';
+            `<span style="font-size:48px;line-height:1;">🧙</span>`;
         }}
       />
     </div>
