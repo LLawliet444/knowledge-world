@@ -1,10 +1,12 @@
 # Frontend Dev Art Assets Manifest
 
-本轮素材使用现有世界地图、节点图标、老学者和对话框视觉作为风格源，不覆盖已有原始素材，只补缺失 PNG。
+本轮素材使用现有世界地图、节点图标、老学者和对话框视觉作为风格源，不覆盖已有原始素材。AI 新生成的角色图先保留 JPG 源图，再由 JPG 抠图生成透明 PNG。
 
 ## 新增素材
 
+- `assets/characters/mentor_old_scholar_half_body.jpg`
 - `assets/characters/mentor_old_scholar_half_body.png`
+- `assets/dev_art_assets_cutout_preview.png`
 - `assets/fog/flash_center.png`
 - `assets/fog/fog_particle_1.png`
 - `assets/fog/fog_particle_2.png`
@@ -13,12 +15,19 @@
 - `assets/fog/punch_out.png`
 - `assets/fog/radial_ring.png`
 - `assets/fog/reveal_sparkle.png`
+- `assets/nodes/npc_astronomer.jpg`
 - `assets/nodes/npc_astronomer.png`
+- `assets/nodes/npc_emperor.jpg`
 - `assets/nodes/npc_emperor.png`
+- `assets/nodes/npc_farmer.jpg`
 - `assets/nodes/npc_farmer.png`
+- `assets/nodes/npc_merchant.jpg`
 - `assets/nodes/npc_merchant.png`
+- `assets/nodes/npc_priest.jpg`
 - `assets/nodes/npc_priest.png`
+- `assets/nodes/npc_scribe.jpg`
 - `assets/nodes/npc_scribe.png`
+- `assets/nodes/npc_storyteller.jpg`
 - `assets/nodes/npc_storyteller.png`
 - `assets/scenes/cave_fire/cave_bg.png`
 - `assets/scenes/cave_fire/focus_symbol.png`
