@@ -11,6 +11,11 @@ import * as PIXI from "pixi.js";
 import type { LayerType } from "../../types/world";
 import { DEPTH_BG_IMAGE } from "../../constants/biome";
 
+const MAP_WIDTH = 1920;
+const MAP_HEIGHT = 1080;
+const MAP_CENTER_X = MAP_WIDTH / 2;
+const MAP_CENTER_Y = MAP_HEIGHT / 2;
+
 interface DepthBackgroundProps {
   currentDepth: LayerType;
   targetDepth: LayerType | null;
@@ -49,13 +54,20 @@ export const DepthBackground: React.FC<DepthBackgroundProps> = ({
   return (
     <Container ref={containerRef}>
       {bgTexture ? (
-        <Sprite texture={bgTexture} anchor={0.5} />
+        <Sprite
+          texture={bgTexture}
+          x={MAP_CENTER_X}
+          y={MAP_CENTER_Y}
+          width={MAP_WIDTH}
+          height={MAP_HEIGHT}
+          anchor={0.5}
+        />
       ) : (
         <Graphics
           draw={(g) => {
             g.clear();
             g.beginFill(0xf4d37a);
-            g.drawRect(-960, -540, 1920, 1080);
+            g.drawRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
             g.endFill();
           }}
         />

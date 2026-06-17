@@ -166,6 +166,7 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     <Stage
       width={MAP_WIDTH}
       height={MAP_HEIGHT}
+      className="world-map-canvas"
       options={{ background: 0xf4d37a }}
     >
       <Container scale={1}>

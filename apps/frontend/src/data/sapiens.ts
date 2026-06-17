@@ -67,7 +67,7 @@ export const sapiensWorld: World = {
       gateNpc: {
         id: "gate_fire_keeper",
         title: "持火者",
-        avatar: "/nodes/npc_fire.png",
+        avatar: "/nodes/node_fire.png",
       },
       position: { x: 420, y: 680 },
       neighbors: ["n_cog_rev", "n_agri_rev"],
@@ -343,7 +343,7 @@ export const sapiensWorld: World = {
       gateNpc: {
         id: "gate_capitalist",
         title: "银行家",
-        avatar: "/nodes/npc_capitalist.png",
+        avatar: "/nodes/node_coin.png",
       },
       position: { x: 1740, y: 620 },
       neighbors: ["n_sci_rev"],

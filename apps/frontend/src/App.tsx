@@ -18,8 +18,7 @@ export const App: React.FC = () => {
 
   return (
     <div
-      className="relative w-full overflow-hidden"
-      style={{ aspectRatio: "16 / 9" }}
+      className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#0a0a1a]"
     >
       {/* PixiJS 地图（全屏） */}
       <WorldMap />

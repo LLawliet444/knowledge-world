@@ -20,7 +20,7 @@ export const economicsWorld: World = {
       gateNpc: {
         id: "gate_scarcity",
         title: "守望者",
-        avatar: "/nodes/npc_gear.png",
+        avatar: "/nodes/node_gear.png",
       },
       position: { x: 200, y: 780 },
       neighbors: ["n_choice"],
@@ -64,7 +64,7 @@ export const economicsWorld: World = {
       gateNpc: {
         id: "gate_choice",
         title: "岔路口守者",
-        avatar: "/nodes/npc_scroll.png",
+        avatar: "/nodes/node_scroll.png",
       },
       position: { x: 420, y: 640 },
       neighbors: ["n_scarcity", "n_supply_demand"],
@@ -152,7 +152,7 @@ export const economicsWorld: World = {
       gateNpc: {
         id: "gate_market_fail",
         title: "公共牧者",
-        avatar: "/nodes/npc_tribe.png",
+        avatar: "/nodes/node_tribe.png",
       },
       position: { x: 860, y: 600 },
       neighbors: ["n_supply_demand", "n_pub_goods"],
@@ -196,7 +196,7 @@ export const economicsWorld: World = {
       gateNpc: {
         id: "gate_pub",
         title: "守夜人",
-        avatar: "/nodes/npc_village.png",
+        avatar: "/nodes/node_village.png",
       },
       position: { x: 1080, y: 680 },
       neighbors: ["n_market_fail"],

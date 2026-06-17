@@ -53,7 +53,6 @@ export const NodeSprite: React.FC<NodeSpriteProps> = ({
       alpha={visual.dimmed ? 0.4 : 1}
       eventMode={eventMode}
       cursor={cursor}
-      interactive={eventMode === "static"}
       click={handleClick}
     >
       {/* 光晕 */}

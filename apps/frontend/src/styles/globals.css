@@ -42,6 +42,12 @@ canvas {
   image-rendering: crisp-edges;
 }
 
+.world-map-canvas {
+  width: min(100vw, calc(100vh * 16 / 9)) !important;
+  height: min(100vh, calc(100vw * 9 / 16)) !important;
+  display: block;
+}
+
 /* 滚动条像素风 */
 ::-webkit-scrollbar {
   width: 8px;

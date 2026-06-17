@@ -9,6 +9,11 @@ import { Container, Sprite, Text, Graphics } from "@pixi/react";
 import gsap from "gsap";
 import * as PIXI from "pixi.js";
 
+const MAP_WIDTH = 1920;
+const MAP_HEIGHT = 1080;
+const MAP_CENTER_X = MAP_WIDTH / 2;
+const MAP_CENTER_Y = MAP_HEIGHT / 2;
+
 interface SmallSceneProps {
   sceneKey: string;
   sceneText: string;
@@ -56,7 +61,7 @@ export const SmallScene: React.FC<SmallSceneProps> = ({
     }
   }, []);
 
-    // 根据场景 key 匹配正确的背景图文件名
+  // 根据场景 key 匹配正确的背景图文件名
   const SCENE_BG_MAP: Record<string, string> = {
     cave_fire: "cave_bg.png",
     empire_gate: "empire_bg.png",
@@ -71,13 +76,13 @@ export const SmallScene: React.FC<SmallSceneProps> = ({
   const focusTexture = PIXI.utils.TextureCache[getSceneAsset(sceneKey, "focus_symbol.png")];
 
   return (
-    <Container ref={containerRef} alpha={0}>
+    <Container ref={containerRef} x={MAP_CENTER_X} y={MAP_CENTER_Y} alpha={0}>
       {/* 全屏黑色背景 */}
       <Graphics
         draw={(g) => {
           g.clear();
           g.beginFill(0x0a0a1a, 0.88);
-          g.drawRect(-960, -540, 1920, 1080);
+          g.drawRect(-MAP_CENTER_X, -MAP_CENTER_Y, MAP_WIDTH, MAP_HEIGHT);
           g.endFill();
         }}
       />
