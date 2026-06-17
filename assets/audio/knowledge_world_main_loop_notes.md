@@ -4,5 +4,5 @@
 - 长度：48 秒
 - BPM：80
 - 风格：温暖像素知识探索、旧书馆、魔法地图、低强度循环
-- 版本：无低频压力版，移除低频 drone / pulse / low-breath，最低音尽量不低于 C3，并使用 170Hz high-pass
-- 编曲层：light pad、celesta motif、harp plucks、soft piano、wood clicks
+- 版本：No Pad / No Drone / No Reverb，移除所有持续铺底声，只保留短衰减点状乐器，并使用 300Hz high-pass 优先去除嗡嗡声
+- 编曲层：celesta motif、harp plucks、soft piano、wood clicks、silence

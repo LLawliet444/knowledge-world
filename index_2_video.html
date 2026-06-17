@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>人类简史 - 农业革命篇</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: #0d0a05; 
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Zpix', monospace;
+        }
+
+        #stage {
+            position: relative;
+            width: 100vw; height: 56.25vw;
+            max-width: 100vh; max-height: 56.25vh;
+            background-color: #ffd56b; /* 丰收稻谷的金黄色底色 */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            image-rendering: pixelated;
+
+            /* ========== 核心：给前端画布直接穿上星露谷外衣 ========== */
+            border: 6px solid #492310; /* 最外层极深咖啡色描边 */
+            outline: 6px solid #b56c27; /* 次外层标志性红木深色 */
+            /* 你甚至可以用这种方式嵌套出无限层级的游戏外框 */
+        }
+
+        .layer { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+
+        /* 背景层：建议使用下方为你生成的 Midjourney 精美背景 */
+        #bg-layer {
+            background-image: url('./assets/video_background/screen_2_background.png'); 
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* 烈日炎炎的环境滤镜：带有一点农业社会被太阳灼烧的燥热感 */
+        #ambient-overlay {
+            background: linear-gradient(180deg, rgba(255, 200, 50, 0.15) 0%, rgba(73, 35, 16, 0.3) 100%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* ==========================================================================
+           动态粒子系统：老农夫滴落的像素汗水
+           ========================================================================== */
+        .sweat {
+            position: absolute;
+            width: 3px; height: 5px;
+            background-color: #aae2ff;
+            z-index: 6;
+            left: 52%; top: 58%; /* 从老农夫额头位置附近跌落 */
+            animation: sweatDrop 1.2s cubic-bezier(0.6, -0.28, 0.735, 0.045) infinite;
+        }
+
+        @keyframes sweatDrop {
+            0% { transform: translateY(0) scaleY(1); opacity: 0; }
+            30% { opacity: 1; }
+            100% { transform: translateY(30px) scaleY(1.5); opacity: 0; }
+        }
+
+        /* ==========================================================================
+           角色层设置 (image_38141c.png)
+           ========================================================================== */
+        #farmer {
+            position: absolute;
+            left: 50%; top: 52%;
+            width: 90px; height: 90px;
+            background-image: url('image_38141c.png'); /* 替换为你的老农夫图片 */
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 5;
+            transform: translateX(-50%);
+            /* 模拟星露谷劳作后疲惫的“急促呼吸”动态 */
+            animation: heavyBreathing 0.8s infinite alternate ease-in-out;
+        }
+
+        #farmer::after {
+            content: '';
+            position: absolute;
+            bottom: 2px; left: 20%;
+            width: 60%; height: 10px;
+            background: rgba(40, 20, 0, 0.5); /* 泥土地上的深色阴影 */
+            border-radius: 50%;
+            z-index: -1;
+        }
+
+        @keyframes heavyBreathing {
+            0% { transform: translateX(-50%) scaleY(1); }
+            100% { transform: translateX(-50%) scaleY(0.93) translateY(4px); } /* 身体向下沉，表现疲惫 */
+        }
+
+        /* ==========================================================================
+           星露谷风经典的木质对话框
+           ========================================================================== */
+        #sd-dialog-box {
+            position: absolute;
+            bottom: 5%; left: 5%; right: 5%;
+            min-height: 120px; 
+            max-height: 50vh;
+            background-color: #fce1b5;
+            border: 4px solid #b56c27;
+            box-shadow: 0 0 0 4px #eeb069, 0 8px 0 rgba(0,0,0,0.4);
+            z-index: 100;
+            padding: 20px 30px;
+            display: flex; flex-direction: column;
+            transform: translateY(0);
+        }
+
+        #sd-dialog-box::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid #da9100;
+            pointer-events: none;
+        }
+
+        .speaker-name {
+            font-size: 1.2rem;
+            color: #803800;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0px #fff;
+        }
+
+        .dialog-text {
+            font-size: 1.1rem;
+            color: #492310;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        .next-arrow {
+            position: absolute;
+            bottom: 12px; right: 20px;
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #492310;
+            animation: arrowBounce 0.4s infinite alternate;
+            display: none;
+        }
+
+        @keyframes arrowBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(5px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage">
+        <div id="bg-layer" class="layer"></div>
+        <div id="sweat-container" class="layer"></div>
+        <div id="farmer"></div>
+        <div id="ambient-overlay" class="layer"></div>
+
+        <div id="sd-dialog-box">
+            <div class="speaker-name">疲惫的老农夫</div>
+            <div id="text-target" class="dialog-text"></div>
+            <div id="next-indicator" class="next-arrow"></div>
+        </div>
+    </div>
+
+    <script>
+        // 动态生成滴落的汗水粒子
+        const sweatContainer = document.getElementById('sweat-container');
+        setInterval(() => {
+            const sweat = document.createElement('div');
+            sweat.classList.add('sweat');
+            // 在老农夫左右轻微随机偏移
+            sweat.style.left = (23 + Math.random() * 3) + '%';
+            sweat.style.top = (40 + Math.random() * 4) + '%';
+            sweat.style.animationDuration = (0.8 + Math.random() * 0.5) + 's';
+            sweatContainer.appendChild(sweat);
+            setTimeout(() => sweat.remove(), 1200);
+        }, 600);
+
+        // 第二幕剧本台词
+        const script = [
+            "（烈日炙烤着大地，身后的粮仓明明已经堆满了吃不完的小麦……）",
+            "可为什么，我每天还要从日出弯腰劳作到日落？拔不完的杂草，挑不完的水……",
+            "明明我们驯化了小麦，获得了更多的食物，可我们的日子却变得比以前更琐碎、更痛苦。",
+            "告诉我，这究竟是为什么？\n为什么定居务农的我们，反而比到处流浪的野兽和猎人还要累？"
+        ];
+
+        let currentStep = 0;
+        const dialogBox = document.getElementById('sd-dialog-box');
+        const textTarget = document.getElementById('text-target');
+        const nextIndicator = document.getElementById('next-indicator');
+
+        function typeWriter(text, index = 0) {
+            nextIndicator.style.display = 'none';
+            if (index < text.length) {
+                textTarget.innerHTML = text.substring(0, index + 1);
+                setTimeout(() => typeWriter(text, index + 1), 40);
+            } else {
+                nextIndicator.style.display = 'block';
+            }
+        }
+
+        dialogBox.addEventListener('click', () => {
+            if (currentStep < script.length - 1) {
+                currentStep++;
+                typeWriter(script[currentStep]);
+            } else {
+                textTarget.innerHTML = "（小麦正在风中摇曳，等待着你的回答……）";
+                nextIndicator.style.display = 'none';
+                dialogBox.style.boxShadow = "0 0 20px #ff3c00"; 
+            }
+        });
+
+        window.onload = () => {
+            typeWriter(script[currentStep]);
+        };
+    </script>
+</body>
+</html>

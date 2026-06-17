@@ -4,8 +4,8 @@
  * 使用 Stage 作为根组件，内部通过 Container 放置地图元素。
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Stage, Container } from "@pixi/react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Stage, Container, Graphics } from "@pixi/react";
 import gsap from "gsap";
 
 import { useWorldStore } from "../../store/worldStore";
@@ -71,10 +71,11 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   useEffect(() => {
     if (!world) return;
     const avatarPaths = world.nodes.map((n) => n.gateNpc.avatar);
+    const iconPaths = world.nodes.map((n) => n.icon);
     const sceneKeys = world.nodes
       .map((n) => n.introScene.visualHint)
       .filter(Boolean);
-    preloadPixiTextures(avatarPaths, sceneKeys);
+    preloadPixiTextures(avatarPaths, iconPaths, sceneKeys);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -187,13 +188,69 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     sceneCloseCallback?.();
   }, [endScene, sceneCloseCallback]);
 
+  // 计算路径链（按 nextDiscoveryId 把节点串起来）
+  const pathChain = useMemo(() => {
+    if (!world) return [] as WorldNode[];
+    const byId = new Map(world.nodes.map((n) => [n.id, n]));
+    const start = world.nodes.find((n) => n.id === world.startNodeId) ?? world.nodes[0];
+    const result: WorldNode[] = [];
+    let current: WorldNode | undefined = start;
+    const visited = new Set<string>();
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      result.push(current);
+      current = current.nextDiscoveryId
+        ? byId.get(current.nextDiscoveryId)
+        : undefined;
+    }
+    // 如果链很短，兜底：未访问的节点按 neighbors 连接
+    if (result.length < world.nodes.length) {
+      for (const n of world.nodes) {
+        if (!visited.has(n.id)) result.push(n);
+      }
+    }
+    return result;
+  }, [world]);
+
+  // 把相邻节点连起来（包含拐点以形成曲折路径）
+  const pathSegments = useMemo(() => {
+    const segs: { x1: number; y1: number; x2: number; y2: number; revealed: boolean }[] = [];
+    for (let i = 0; i < pathChain.length - 1; i++) {
+      const a = pathChain[i];
+      const b = pathChain[i + 1];
+      if (!a || !b) continue;
+
+      // 在两点之间加一个小"拐点"，让路径像曲线路径，避免看起来全是直线
+      // 取中点 + 轻微垂直偏移
+      const midX = (a.position.x + b.position.x) / 2;
+      const midY = (a.position.y + b.position.y) / 2;
+      const dx = b.position.x - a.position.x;
+      const dy = b.position.y - a.position.y;
+      // 垂直方向（与 dx,dy 成 90°）的小偏移
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const offset = (i % 2 === 0 ? 1 : -1) * Math.min(80, len * 0.15);
+      const bendX = midX + (-dy / len) * offset;
+      const bendY = midY + (dx / len) * offset;
+
+      // 判断这段路径是否已"解锁"（前一个节点的某个状态）
+      const progress = nodeProgress[a.id];
+      const depthState = progress?.[currentDepth] ?? "locked";
+      const revealed = depthState !== "locked";
+
+      segs.push({ x1: a.position.x, y1: a.position.y, x2: bendX, y2: bendY, revealed });
+      segs.push({ x1: bendX, y1: bendY, x2: b.position.x, y2: b.position.y, revealed });
+    }
+    return segs;
+  }, [pathChain, nodeProgress, currentDepth]);
+
   if (!world) return null;
 
   return (
-    <div
-      className="world-map-container"
-      style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}
-    >
+    <>
+      <div
+        className="world-map-container"
+        style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}
+      >
       {/* PixiJS Stage，用 CSS transform 等比缩放铺满整个窗口（cover 模式） */}
       <div
         style={{
@@ -220,6 +277,38 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
               onSwitchComplete={handleDepthSwitchComplete}
             />
 
+            {/* 路径线：像素风的曲折虚线连接各节点 */}
+            <Graphics
+              draw={(g) => {
+                g.clear();
+                for (const seg of pathSegments) {
+                  g.lineStyle({
+                    width: 4,
+                    color: seg.revealed ? 0x8b5a2b : 0x6b4f3a,
+                    alpha: seg.revealed ? 0.55 : 0.25,
+                  });
+                  // 画主路径
+                  g.moveTo(seg.x1, seg.y1);
+                  g.lineTo(seg.x2, seg.y2);
+                }
+
+                // 在路径上画像素"小脚印"节点间
+                for (const seg of pathSegments) {
+                  if (!seg.revealed) continue;
+                  const steps = 4;
+                  for (let s = 1; s < steps; s++) {
+                    const t = s / steps;
+                    const px = seg.x1 + (seg.x2 - seg.x1) * t;
+                    const py = seg.y1 + (seg.y2 - seg.y1) * t;
+                    g.lineStyle({ width: 0, color: 0x000000, alpha: 0 });
+                    g.beginFill(0xa87640, 0.6);
+                    g.drawRect(px - 3, py - 3, 6, 6);
+                    g.endFill();
+                  }
+                }
+              }}
+            />
+
             {world.nodes.map((node) => {
               const progress = nodeProgress[node.id];
               const depthState = progress?.[currentDepth] ?? "locked";
@@ -241,15 +330,6 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
               direction={scholarDir}
               isWalking={isWalking}
             />
-
-            {isPlayingScene && activeSceneKey && activeNode && (
-              <SmallScene
-                sceneKey={activeSceneKey}
-                sceneText={activeNode.introScene.sceneText}
-                durationSec={activeNode.introScene.durationSec}
-                onComplete={handleSceneComplete}
-              />
-            )}
           </Container>
         </Stage>
 
@@ -274,6 +354,17 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
         </div>
       </div>
     </div>
+
+    {/* 第一幕过场动画（DOM 层，完全覆盖在地图之上） */}
+    {isPlayingScene && activeSceneKey && activeNode && (
+      <SmallScene
+        sceneKey={activeSceneKey}
+        sceneText={activeNode.introScene.sceneText}
+        durationSec={activeNode.introScene.durationSec}
+        onComplete={handleSceneComplete}
+      />
+    )}
+    </>
   );
 };
 

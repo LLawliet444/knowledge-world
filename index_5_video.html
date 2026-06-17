@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>人类简史 - 国家与公司篇</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: #08070c; 
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Zpix', monospace;
+        }
+
+        /* 锁死 16:9 画布尺寸，配合图片原生边框，拼出完美的双边框立体街机感 */
+        #stage {
+            position: relative;
+            width: 100vw; height: 56.25vw;
+            max-width: 100vh; max-height: 56.25vh;
+            background-color: #1a1016;
+            
+            /* 最外层 CSS 双重木质边框线 */
+            box-shadow: 
+                inset 0 0 0 8px #b56c27,  
+                inset 0 0 0 14px #492310, 
+                0 15px 40px rgba(0,0,0,0.9); 
+            
+            image-rendering: pixelated; 
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        /* ==========================================================================
+           核心修复 1：背景层强制 100% 满屏撑开，并稍微提升层级防止被底色吞掉
+           ========================================================================== */
+        #bg-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-image: url('./assets/video_background/screen_5_background.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 2; 
+        }
+
+        /* ==========================================================================
+           核心特效：石碑抽象规则符号的“秩序呼吸波纹”
+           ========================================================================== */
+        #monument-symbol {
+            position: absolute;
+            left: 50%; top: 36%; /* 提示：如果符号错位，可以修改这里的百分比调整特效左右/上下 */
+            width: 70px; height: 70px;
+            transform: translate(-50%, -50%);
+            z-index: 4;
+            background: radial-gradient(circle, #ffffff 0%, #00a2ff 40%, rgba(0, 100, 255, 0) 70%);
+            mix-blend-mode: screen; /* 滤色：只提亮，绝不遮挡图层 */
+            animation: symbolPulse 2.5s infinite ease-in-out;
+        }
+
+        @keyframes symbolPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.4; }
+            50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.8; filter: drop-shadow(0 0 12px #8cd2ff); }
+        }
+
+        /* ==========================================================================
+           核心修复 2：环境光修复，强制满屏，且利用 overlay 混合，杜绝“黑死背景”
+           ========================================================================== */
+        #law-ambient-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: radial-gradient(circle at 50% 40%, rgba(100, 180, 255, 0.15) 0%, rgba(12, 10, 18, 0.45) 100%);
+            pointer-events: none;
+            z-index: 5;
+            mix-blend-mode: overlay; /* 核心修复：让环境秩序光完美融合进背景，不产生死黑遮挡 */
+        }
+
+        /* ==========================================================================
+           星露谷风经典的木质对话框
+           ========================================================================== */
+        #sd-dialog-box {
+            position: absolute;
+            bottom: 6%; left: 6%; right: 6%;
+            height: 25%;
+            background-color: #fce1b5;
+            border: 4px solid #b56c27;
+            box-shadow: 0 0 0 4px #eeb069, 0 8px 0 rgba(0,0,0,0.4);
+            z-index: 100;
+            padding: 15px 25px;
+            display: flex; flex-direction: column;
+        }
+
+        #sd-dialog-box::before {
+            content: '';
+            position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid #da9100;
+            pointer-events: none;
+        }
+
+        .speaker-name {
+            font-size: 1.2rem;
+            color: #803800;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0px #fff;
+        }
+
+        .dialog-text {
+            font-size: 1.1rem;
+            color: #492310;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        .next-arrow {
+            position: absolute; bottom: 12px; right: 20px;
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #492310;
+            animation: arrowBounce 0.4s infinite alternate;
+            display: none;
+        }
+
+        @keyframes arrowBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(5px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage">
+        <div id="bg-layer"></div>
+        <div id="monument-symbol"></div>
+        <div id="law-ambient-overlay"></div>
+
+        <div id="sd-dialog-box">
+            <div class="speaker-name">虔诚的石碑书记官</div>
+            <div id="text-target" class="dialog-text"></div>
+            <div id="next-indicator" class="next-arrow"></div>
+        </div>
+    </div>
+
+    <script>
+        const script = [
+            "（庄严的帝国大殿内，原本互相制衡的三个阶层破天荒地站在了同一侧……）",
+            "手握生杀大权的法官、富可敌国的商人、以及重甲披身的士兵。他们竟然同时向一块石头致敬。",
+            "那块石碑上没有写下神明的名字，也没有画着丰盛的食物，它空无一字，只刻着一个古怪的秩序符号。",
+            "但这三个掌握着世俗最强力量的人，却甘愿受其驱使，只因为他们共同承认这上面的“规则”。",
+            "这难道不是人类历史上最庞大的集体幻觉吗？",
+            "告诉我，为什么国家、法律和公司在现实中明明连一个实体细胞都没有……\n却能像故事一样被写在纸上，就能驱使千万人为之生、为之死、为之日夜运转？！"
+        ];
+
+        let currentStep = 0;
+        const textTarget = document.getElementById('text-target');
+        const nextIndicator = document.getElementById('next-indicator');
+        const dialogBox = document.getElementById('sd-dialog-box');
+
+        function typeWriter(text, index = 0) {
+            nextIndicator.style.display = 'none';
+            if (index < text.length) {
+                textTarget.innerHTML = text.substring(0, index + 1);
+                setTimeout(() => typeWriter(text, index + 1), 40);
+            } else {
+                nextIndicator.style.display = 'block';
+            }
+        }
+
+        dialogBox.addEventListener('click', () => {
+            if (currentStep < script.length - 1) {
+                currentStep++;
+                typeWriter(script[currentStep]);
+            } else {
+                textTarget.innerHTML = "（抽象符号静静散发着冰蓝色的流光，冷酷地俯瞰着众生……）";
+                nextIndicator.style.display = 'none';
+                dialogBox.style.boxShadow = "0 0 25px #8cd2ff"; 
+            }
+        });
+
+        window.onload = () => {
+            typeWriter(script[currentStep]);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>人类简史 - 认知层开场动画</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* ==========================================================================
+           1. 全局画布与像素环境设置
+           ========================================================================== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: #05020c; 
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Zpix', monospace;
+        }
+
+        /* 动画主舞台：严格等比缩放，锁死 16:9 比例 */
+        #stage {
+            position: relative;
+            width: 100vw; height: 56.25vw; /* 16:9 比例 */
+            max-width: 100vh; max-height: 56.25vh; /* 防止超出屏幕 */
+            background-color: #1a1016;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            image-rendering: pixelated; /* 核心：防止像素图片模糊 */
+        }
+
+        /* ==========================================================================
+           2. 场景多层叠加（实现 Y-Sort 遮挡与光影）
+           ========================================================================== */
+        .layer {
+            position: absolute;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+        }
+
+        /* 背景层：直接放入你上传的洞穴壁画与帐篷底图 (image_38a247.jpg) */
+        #bg-layer {
+            background-image: url('./assets/video_background/screen_1_background.png'); /* 请替换为你的地图底图路径 */
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* 氛围调色层：为整个场景蒙上一层深夜洞穴的暗紫色滤镜 */
+        #ambient-overlay {
+            background: radial-gradient(circle at 25% 70%, rgba(0,0,0,0) 10%, rgba(15, 8, 30, 0.85) 60%);
+            mix-blend-mode: multiply; /* 混合模式，让暗部更深邃 */
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* ==========================================================================
+           3. 核心动态元素：火光、篝火与粒子
+           ========================================================================== */
+        /* 篝火光源：模拟火光照亮周围环境的“呼吸感” */
+        #fire-light {
+            position: absolute;
+            left: 23%; top: 62%; /* 精准定位到地图火堆位置 */
+            width: 250px; height: 250px;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(255,145,40,0.4) 0%, rgba(255,80,0,0.1) 40%, rgba(0,0,0,0) 70%);
+            mix-blend-mode: screen;
+            pointer-events: none;
+            z-index: 2;
+            animation: fireBreath 0.15s infinite alternate; /* 极快的像素闪烁频率 */
+        }
+
+        @keyframes fireBreath {
+            0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.9; }
+            100% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+        }
+
+        /* 像素火星上升粒子系统 */
+        .spark {
+            position: absolute;
+            width: 4px; height: 4px; /* 像素方块火星 */
+            background-color: #ff9d21;
+            box-shadow: 0 0 4px #ff3c00;
+            z-index: 4;
+            bottom: 35%; left: 23%;
+            animation: sparkRise 2.5s linear infinite;
+        }
+
+        @keyframes sparkRise {
+            0% { transform: translateY(0) translateX(0); opacity: 1; }
+            50% { transform: translateY(-50px) translateX(10px); opacity: 0.8; }
+            100% { transform: translateY(-120px) translateX(-5px); opacity: 0; }
+        }
+
+        /* ==========================================================================
+           4. 角色层设置 (image_388879.png)
+           ========================================================================== */
+        /* 角色头像悬浮层 */
+        #storyteller {
+            position: absolute;
+            /* 这里的 31% 是由对话框 bottom(6%) + height(25%) 凑出来的 */
+            bottom: 25%; 
+            right: 8%; 
+            width: 120px; 
+            height: 120px;
+            background-image: url('./assets/nodes/npc_storyteller.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 101; /* 确保比对话框的 100 更高 */
+            transform: scaleX(-1);
+
+            opacity: 0; /* 初始隐藏，通过JS淡入或走入 */
+            transition: opacity 1.5s ease-in-out;
+
+            /* 添加一点轻微的悬浮动画 */
+            animation: characterFloat 2s infinite ease-in-out;
+            pointer-events: none; /* 让鼠标点击穿透头像，直接点到下面的对话框 */
+        }
+
+        /* 给老爷爷脚底加上星露谷标志性的半透明椭圆黑色阴影 */
+        #storyteller::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 15%;
+            width: 70%; height: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 50%;
+            z-index: -1;
+        }
+
+        /* ==========================================================================
+           5. 星露谷风经典的木质对话框 (UI Component)
+           ========================================================================== */
+        #sd-dialog-box {
+            position: absolute;
+            bottom: 5%; left: 5%; right: 5%;
+
+            min-height: 120px; 
+            max-height: 50vh;
+
+            background-color: #fce1b5; /* 经典的羊皮纸内底色 */
+            border: 4px solid #b56c27; /* 深红木色外边框 */
+            box-shadow: 0 0 0 4px #eeb069, 0 8px 0 rgba(0,0,0,0.4); /* 亮木色内框 + 沉重下阴影 */
+            z-index: 100;
+            padding: 20px 30px;
+
+            display: flex; flex-direction: column;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease-out;
+        }
+
+        /* 金色装饰内线 */
+        #sd-dialog-box::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid #da9100; /* 内衬金线 */
+            pointer-events: none;
+        }
+
+        /* 说话者名字标签 */
+        .speaker-name {
+            font-size: 1.2rem;
+            color: #803800;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0px #fff;
+        }
+
+        /* 动态打字机文本 */
+        .dialog-text {
+            font-size: 1.1rem;
+            color: #492310; /* 星露谷专用深咖啡色文字 */
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        /* 右下角跳动的“点击继续”像素小箭头 */
+        .next-arrow {
+            position: absolute;
+            bottom: 12px; right: 20px;
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #492310;
+            animation: arrowBounce 0.4s infinite alternate;
+            display: none;
+        }
+
+        @keyframes arrowBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(5px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage">
+        <div id="bg-layer" class="layer"></div>
+        
+        <div id="fire-light"></div>
+        
+        <div id="sparks-container" class="layer"></div>
+
+        <div id="storyteller"></div>
+
+        <div id="ambient-overlay" class="layer"></div>
+
+        <div id="sd-dialog-box">
+            <div class="speaker-name">智者老爷爷</div>
+            <div id="text-target" class="dialog-text"></div>
+            <div id="next-indicator" class="next-arrow"></div>
+        </div>
+    </div>
+
+    <script>
+        // 动态生成火星上升粒子
+        const sparksContainer = document.getElementById('sparks-container');
+        setInterval(() => {
+            const spark = document.createElement('div');
+            spark.classList.add('spark');
+            // 让火星左右随机偏移，更加自然
+            spark.style.left = (47 + Math.random() * 4) + '%';
+            spark.style.bottom = (50 + Math.random() * 4) + '%';
+            spark.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+            sparksContainer.appendChild(spark);
+            // 动画结束后自动销毁内存
+            setTimeout(() => spark.remove(), 3000);
+        }, 300);
+
+        // 剧情台词脚本
+        const script = [
+            "（众人围坐在跳动的篝火旁，原本冰冷的洞穴渐渐暖和起来……）",
+            "看啊，火光照亮了墙上的远古图腾。此时此刻，我们这些原本毫无血缘关系的陌生人，竟能为了同一个信念聚在这里。",
+            "这就是语言的力量，这就是我们共同笃信的故事……",
+            "那么，我的孩子们，我想问你们一个问题：\n是什么，让智人和其他动物有了根本的不同？"
+        ];
+
+        let currentStep = 0;
+        const storyteller = document.getElementById('storyteller');
+        const dialogBox = document.getElementById('sd-dialog-box');
+        const textTarget = document.getElementById('text-target');
+        const nextIndicator = document.getElementById('next-indicator');
+
+        // 剧情导演主流程
+        function startStory() {
+            // Step 1: 开场 1.5 秒后，老爷爷举着火把从暗处显现（淡入）
+            setTimeout(() => {
+                storyteller.style.opacity = '1';
+            }, 1500);
+
+            // Step 2: 3秒后，星露谷经典木质对话框弹出，并开始打印第一句台词
+            setTimeout(() => {
+                dialogBox.style.opacity = '1';
+                dialogBox.style.transform = 'translateY(0)';
+                typeWriter(script[currentStep]);
+            }, 3500);
+        }
+
+        // 星露谷风逐字打印机效果
+        function typeWriter(text, index = 0) {
+            nextIndicator.style.display = 'none'; // 正在打字时隐藏箭头
+            if (index < text.length) {
+                textTarget.innerHTML = text.substring(0, index + 1);
+                // 模拟游戏里的打字速度（每字40ms）
+                setTimeout(() => typeWriter(text, index + 1), 40);
+            } else {
+                nextIndicator.style.display = 'block'; // 打字结束，显示跳动箭头
+            }
+        }
+
+        // 点击对话框推进剧情
+        dialogBox.addEventListener('click', () => {
+            // 如果还有下一句台词
+            if (currentStep < script.length - 1) {
+                currentStep++;
+                typeWriter(script[currentStep]);
+            } else {
+                // 故事讲完，提出终极问题后的后续处理（例如：渐隐切入正式地图游戏）
+                textTarget.innerHTML = "（等待你的回答……）";
+                nextIndicator.style.display = 'none';
+                dialogBox.style.boxShadow = "0 0 20px #ff9d21"; // 最终提问时框体发光强化
+            }
+        });
+
+        // 页面加载完成后启动导演剧本
+        window.onload = startStory;
+    </script>
+</body>
+</html>

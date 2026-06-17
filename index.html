@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Stardew Valley UI Style</title>
+    <!-- 引入像素风 Google 字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ==========================================================================
+           1. 像素级全局样式复刻
+           ========================================================================== */
+        :root {
+            /* 星露谷标志性配色 */
+            --sd-wood-dark: #b56c27;    /* 标志性红木深色描边 */
+            --sd-wood-light: #eeb069;   /* 亮色木质 */
+            --sd-bg-tan: #fce1b5;       /* 羊皮纸/木板内衬底色 */
+            --sd-gold-border: #da9100;  /* 内部金色框线 */
+            --sd-text-dark: #492310;    /* 经典深咖色文字（星露谷不用纯黑） */
+            --sd-pixel-size: 4px;       /* 像素描边颗粒度 */
+        }
+
+        body {
+            background-color: #2c4c38; /* 经典的星露谷草地深绿背景 */
+            color: var(--sd-text-dark);
+            font-family: 'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            /* 保证缩放时像素边缘不模糊 */
+            image-rendering: pixelated;
+        }
+
+        /* ==========================================================================
+           2. 核心组件：星露谷木质看板 (Menu Board)
+           ========================================================================== */
+        .sd-board {
+            background-color: var(--sd-bg-tan);
+            position: relative;
+            padding: 24px;
+            width: 450px;
+            
+            /* 标志性的像素厚重双重描边 */
+            border: var(--sd-pixel-size) solid var(--sd-wood-dark);
+            box-shadow: 
+                0 0 0 var(--sd-pixel-size) var(--sd-wood-light),
+                0 8px 0 rgba(0,0,0,0.3); /* 游戏特有的沉重下阴影 */
+            
+            margin-top: 20px;
+        }
+
+        /* 看板内部的金色细线内衬 */
+        .sd-board::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid var(--sd-gold-border);
+            pointer-events: none;
+        }
+
+        /* 看板标题（木质凸起缎带效果） */
+        .sd-board-title {
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #d67a29;
+            color: #fff;
+            padding: 6px 20px;
+            font-size: 18px;
+            text-shadow: 2px 2px 0px var(--sd-text-dark);
+            border: var(--sd-pixel-size) solid var(--sd-text-dark);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+            white-space: nowrap;
+        }
+
+        /* ==========================================================================
+           3. 核心组件：Q弹像素按钮 (Clickable Button)
+           ========================================================================== */
+        .sd-btn {
+            display: inline-block;
+            background-color: #f7a143;
+            color: #fff;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border: var(--sd-pixel-size) solid var(--sd-text-dark);
+            cursor: pointer;
+            position: relative;
+            box-shadow: inset -4px -4px 0px #b86214, inset 4px 4px 0px #ffc685;
+            text-shadow: 2px 2px 0px var(--sd-text-dark);
+            transition: transform 0.05s;
+        }
+
+        /* 悬停与点击的动效（完美复刻鼠标点下去的塌陷感） */
+        .sd-btn:hover {
+            background-color: #ffb057;
+        }
+
+        .sd-btn:active {
+            transform: translateY(4px);
+            box-shadow: inset 4px 4px 0px #b86214, inset -4px -4px 0px #ffc685;
+        }
+
+        /* 绿色快捷确认按钮款式 */
+        .sd-btn.success {
+            background-color: #61b329;
+            box-shadow: inset -4px -4px 0px #3c7713, inset 4px 4px 0px #97e65e;
+        }
+        .sd-btn.success:hover { background-color: #72c733; }
+
+        /* ==========================================================================
+           4. 辅助组件：复古输入框 & 标签 (Input & Badge)
+           ========================================================================== */
+        .sd-form-group {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sd-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--sd-text-dark);
+        }
+
+        .sd-input {
+            background-color: #fff7e6;
+            border: 3px solid var(--sd-wood-dark);
+            padding: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--sd-text-dark);
+            outline: none;
+            box-shadow: inset 3px 3px 0px rgba(0,0,0,0.1);
+        }
+
+        .sd-input:focus {
+            border-color: var(--sd-gold-border);
+            background-color: #fff;
+        }
+
+        /* 技能/流派标签 */
+        .sd-badge {
+            display: inline-block;
+            background-color: #cf8442;
+            color: #fff7e6;
+            font-size: 12px;
+            padding: 4px 10px;
+            border: 2px solid var(--sd-text-dark);
+            text-shadow: 1px 1px 0px var(--sd-text-dark);
+        }
+
+        /* ==========================================================================
+           5. 游戏化卡片间距布局
+           ========================================================================== */
+        .sd-content {
+            margin-top: 15px;
+            line-height: 1.6;
+        }
+
+        .divider {
+            height: 4px;
+            background-color: var(--sd-gold-border);
+            margin: 15px 0;
+            border-bottom: 2px solid #fff;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 示例看板 1：状态面板 -->
+    <div class="sd-board">
+        <div class="sd-board-title">农场日志</div>
+        
+        <div class="sd-content">
+            <p><strong>季节：</strong> <span style="color: #da3e00;">夏季 - 第 18 天</span></p>
+            <p>今日天气晴朗。温室里的甜瓜已经成熟了，记得带上采集器去神秘森林走一趟。</p>
+            
+            <div class="divider"></div>
+            
+            <div style="display: flex; gap: 8px;">
+                <span class="sd-badge">耕作 Lv.10</span>
+                <span class="sd-badge" style="background-color: #298fd6;">采矿 Lv.8</span>
+                <span class="sd-badge" style="background-color: #10a353;">采集 Lv.9</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 示例看板 2：交互表单 -->
+    <div class="sd-board">
+        <div class="sd-board-title">皮埃尔的小店</div>
+        
+        <div class="sd-content">
+            <div class="sd-form-group">
+                <label class="sd-label">输入你想购买的种子数量：</label>
+                <input type="number" class="sd-input" value="99" min="1">
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px;">
+                <button class="sd-btn">离开</button>
+                <button class="sd-btn success">购买 (G)</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

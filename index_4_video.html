@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>人类简史 - 虚构与神话篇</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: #050508; 
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Zpix', monospace;
+        }
+
+        /* 统一的主舞台：双重边框叠加（CSS内阴影木框 + 你的图片原生木框） */
+        #stage {
+            position: relative;
+            width: 100vw; height: 56.25vw; /* 标准 16:9 */
+            max-width: 100vh; max-height: 56.25vh; 
+            background-color: #1a1016;
+            image-rendering: pixelated; 
+            
+            /* 复合内阴影：利用代码在最外层硬切出一圈像素框 */
+            box-shadow: 
+                inset 0 0 0 8px #b56c27,  
+                inset 0 0 0 14px #492310, 
+                0 15px 40px rgba(0,0,0,0.9); 
+                
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        /* ==========================================================================
+           1. 背景层修复：强制 100% 撑开，并将其z-index拉回标准层级
+           ========================================================================== */
+        #bg-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-image: url('./assets/video_background/screen_4_background.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 2; /* 提升至 2，防止被基础底色吞掉 */
+        }
+
+        /* ==========================================================================
+           2. 核心特效：图腾抽象符号的“神圣呼吸发光”
+           ========================================================================== */
+        #sacred-totem {
+            position: absolute;
+            left: 40%; top: 12%;
+            width: 80px; height: 80px;
+            transform: translateX(-50%);
+            z-index: 4;
+            background: radial-gradient(circle, rgba(145, 255, 0, 0.8) 0%, rgba(255, 200, 0, 0) 70%);
+            mix-blend-mode: screen; /* 滤色模式：只提亮，不遮挡背景 */
+            animation: totemGlow 3s infinite ease-in-out;
+        }
+
+        @keyframes totemGlow {
+            0%, 100% { transform: translateX(-50%) scale(0.9); opacity: 0.4; }
+            50% { transform: translateX(-50%) scale(1.2); opacity: 0.9; filter: drop-shadow(0 0 15px #00ff15); }
+        }
+
+        /* ==========================================================================
+           3. 环境光修复：改用 overlay/screen 混合模式，确保绝对不会黑死背景图
+           ========================================================================== */
+        #bonfire-light-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: radial-gradient(circle at 50% 65%, rgba(255, 132, 38, 0.25) 0%, rgba(10, 6, 15, 0.4) 100%);
+            pointer-events: none;
+            z-index: 5;
+            mix-blend-mode: overlay; /* 核心修复：让环境光和背景图完美融合，不再是一片死黑 */
+            animation: fireFlicker 0.15s infinite alternate ease-in-out;
+        }
+
+        @keyframes fireFlicker {
+            0% { opacity: 0.85; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.01); }
+        }
+
+        /* ==========================================================================
+           4. 角色层：高举火把的神秘祭司
+           ========================================================================== */
+        #priest {
+            position: absolute;
+            left: 50%; top: 48%;
+            width: 90px; height: 90px;
+            background-image: url('image_381f02.png'); 
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 6;
+            transform: translateX(-50%);
+            animation: priestPreach 1.5s infinite alternate ease-in-out;
+        }
+
+        @keyframes priestPreach {
+            0% { transform: translateX(-50%) translateY(0); }
+            100% { transform: translateX(-50%) translateY(-2px); }
+        }
+
+        /* ==========================================================================
+           5. 星露谷风经典的木质对话框
+           ========================================================================== */
+        #sd-dialog-box {
+            position: absolute;
+            bottom: 6%; left: 6%; right: 6%;
+            height: 25%;
+            background-color: #fce1b5;
+            border: 4px solid #b56c27;
+            box-shadow: 0 0 0 4px #eeb069, 0 8px 0 rgba(0,0,0,0.4);
+            z-index: 100;
+            padding: 15px 25px;
+            display: flex; flex-direction: column;
+        }
+
+        #sd-dialog-box::before {
+            content: '';
+            position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid #da9100;
+            pointer-events: none;
+        }
+
+        .speaker-name {
+            font-size: 1.2rem;
+            color: #803800;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0px #fff;
+        }
+
+        .dialog-text {
+            font-size: 1.1rem;
+            color: #492310;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        .next-arrow {
+            position: absolute; bottom: 12px; right: 20px;
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #492310;
+            animation: arrowBounce 0.4s infinite alternate;
+            display: none;
+        }
+
+        @keyframes arrowBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(5px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage">
+        <!-- 图层顺序已经严格对齐 -->
+        <div id="bg-layer"></div>
+        <div id="sacred-totem"></div>
+        <div id="priest"></div>
+        <div id="bonfire-light-overlay"></div>
+
+        <div id="sd-dialog-box">
+            <div class="speaker-name">手持火把的神秘祭司</div>
+            <div id="text-target" class="dialog-text"></div>
+            <div id="next-indicator" class="next-arrow"></div>
+        </div>
+    </div>
+
+    <script>
+        const script = [
+            "（黑夜沉沉，狂风呼啸，几群原本视彼此为死敌、语言不通的陌生人聚集在火堆旁……）",
+            "看啊，他们竟然解下了腰间的石斧，放下了沾满血迹的长矛，温顺地席地而坐。",
+            "逼迫他们屈服的不是锁链，吸引他们的也不是甘露。仅仅是因为，他们都在注视着岩壁上那个泥土画出的符号。",
+            "他们都在聆听我口中所讲述的、关于那个活在云端与雷电中的神明灵兽的神话。",
+            "告诉我，这难道不是这个世界上最可怕的巫术吗？",
+            "为什么一个看不见、摸不着、甚至根本不存在的虚构谎言……\n却能让成千上万个毫无血缘的陌生人，从此彻底信任彼此，并肩协作？！"
+        ];
+
+        let currentStep = 0;
+        const textTarget = document.getElementById('text-target');
+        const nextIndicator = document.getElementById('next-indicator');
+        const dialogBox = document.getElementById('sd-dialog-box');
+
+        function typeWriter(text, index = 0) {
+            nextIndicator.style.display = 'none';
+            if (index < text.length) {
+                textTarget.innerHTML = text.substring(0, index + 1);
+                setTimeout(() => typeWriter(text, index + 1), 40);
+            } else {
+                nextIndicator.style.display = 'block';
+            }
+        }
+
+        dialogBox.addEventListener('click', () => {
+            if (currentStep < script.length - 1) {
+                currentStep++;
+                typeWriter(script[currentStep]);
+            } else {
+                textTarget.innerHTML = "（火焰噼啪作响，远古的神明在阴影中沉默，等待着你的回答……）";
+                nextIndicator.style.display = 'none';
+                dialogBox.style.boxShadow = "0 0 25px #ff5100"; 
+            }
+        });
+
+        window.onload = () => {
+            typeWriter(script[currentStep]);
+        };
+    </script>
+</body>
+</html>

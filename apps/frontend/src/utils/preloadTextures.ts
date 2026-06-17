@@ -11,6 +11,7 @@ import * as PIXI from "pixi.js";
 /** 收集当前世界 + 场景的所有纹理路径并预加载 */
 export function preloadPixiTextures(
   avatarPaths: string[],
+  iconPaths: string[],
   sceneKeys: string[],
 ): void {
   const paths = new Set<string>();
@@ -35,6 +36,9 @@ export function preloadPixiTextures(
 
   // NPC 头像
   for (const p of avatarPaths) paths.add(p);
+
+  // 节点章节图标（地图上显示的主 icon）
+  for (const p of iconPaths) paths.add(p);
 
   // 场景背景 + focus symbol
   const SCENE_BG_MAP: Record<string, string> = {

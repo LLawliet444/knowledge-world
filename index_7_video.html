@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>人类简史 - 科学革命篇</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; background-color: #050508; overflow: hidden; display: flex; justify-content: center; align-items: center; font-family: 'Zpix', monospace; }
+
+        #stage {
+            position: relative;
+            width: 100vw; height: 56.25vw;
+            max-width: 100vh; max-height: 56.25vh;
+            background-color: #0f0f12;
+            box-shadow: inset 0 0 0 8px #4a4a4a, inset 0 0 0 14px #1a1a1a, 0 15px 40px rgba(0,0,0,0.9); 
+            image-rendering: pixelated; 
+            z-index: 10; overflow: hidden;
+        }
+
+        /* 观测台背景层 */
+        #bg-layer {
+            position: absolute; width: 100%; height: 100%;
+            background-image: url('./assets/video_background/screen_7_background.jpg');
+            background-size: cover; background-position: center;
+            z-index: 2;
+        }
+
+        /* 动态生成的擦除残影效果 */
+        .erase-particle {
+            position: absolute;
+            background: #dcdcdc;
+            width: 4px; height: 4px;
+            pointer-events: none;
+            z-index: 6;
+            animation: fadeOut 1s forwards;
+        }
+        @keyframes fadeOut { to { opacity: 0; transform: translateY(20px); } }
+
+        /* 科学观察仪器：初始为半透明，触发后出现 */
+        #science-gear {
+            position: absolute;
+            right: 38%; top: 15%;
+            width: 120px; height: 120px;
+            background: radial-gradient(circle, #aaddff 0%, rgba(0,0,0,0) 70%);
+            opacity: 0;
+            transition: opacity 2s ease-in, transform 2s ease-in-out;
+            z-index: 7;
+        }
+
+        #sd-dialog-box {
+            position: absolute; bottom: 6%; left: 6%; right: 6%; height: 25%;
+            background-color: #e0e0e0;
+            border: 4px solid #333;
+            box-shadow: 0 8px 0 rgba(0,0,0,0.3);
+            z-index: 100; padding: 20px;
+            display: flex; flex-direction: column;
+        }
+
+        .speaker-name { font-size: 1.2rem; color: #1a1a1a; font-weight: bold; margin-bottom: 5px; }
+        .dialog-text { font-size: 1.1rem; color: #333; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <div id="stage">
+        <div id="bg-layer"></div>
+        <div id="science-gear"></div>
+        <div id="sd-dialog-box" onclick="triggerNext()">
+            <div class="speaker-name">观星者</div>
+            <div id="text-target" class="dialog-text"></div>
+        </div>
+    </div>
+
+    <script>
+        const script = [
+            "（这里记载了先祖们关于星空的全部答案，但每一行都写满了对未知的傲慢。）",
+            "（伸手擦除……）",
+            "“我不知道。”",
+            "（当旧的傲慢被擦掉，空白处竟生出了新的齿轮与透镜。）",
+            "为什么承认无知，反而成了人类历史上最强大的力量？"
+        ];
+        let step = 0;
+        const textTarget = document.getElementById('text-target');
+        const gear = document.getElementById('science-gear');
+
+        function triggerNext() {
+            if (step < script.length) {
+                textTarget.innerText = script[step];
+                if (step === 1) spawnDust();
+                if (step === 3) { gear.style.opacity = '1'; gear.style.transform = 'scale(1.2)'; }
+                step++;
+            }
+        }
+
+        function spawnDust() {
+            for(let i=0; i<30; i++) {
+                let p = document.createElement('div');
+                p.className = 'erase-particle';
+                p.style.left = Math.random() * 80 + 10 + '%';
+                p.style.top = Math.random() * 60 + 10 + '%';
+                document.getElementById('stage').appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        }
+        window.onload = () => triggerNext();
+    </script>
+</body>
+</html>

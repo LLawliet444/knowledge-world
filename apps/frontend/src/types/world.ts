@@ -62,8 +62,9 @@ export interface FinalQuestion {
 export interface WorldNode {
   id: string;
   name: string;           // 节点内部名称（如"认知革命"），地图上不直接显示
+  icon: string;           // 节点图标（如 "/nodes/node_cave_painting.png"），代替 NPC 头像显示在地图上
   mysteryQuestion: string; // 地图上代替节点名显示的一句谜题文案
-  gateNpc: GateNpc;       // 关卡 NPC 信息
+  gateNpc: GateNpc;       // 关卡 NPC 信息（对话框内继续使用）
   position: { x: number; y: number }; // 节点在地图上的像素坐标（四张地图共用）
   neighbors: string[];    // 相邻节点 ID 列表
   nextDiscoveryId: string | null; // 当前节点完成后优先显露的 1 个相邻节点

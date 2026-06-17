@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>人类简史 - 金钱与信任篇</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: #0c0805; 
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Zpix', monospace;
+        }
+
+        #stage {
+            position: relative;
+            width: 100vw; height: 56.25vw;
+            max-width: 100vh; max-height: 56.25vh;
+            background-color: #7c4c24; /* 市集温润的木质底色 */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            image-rendering: pixelated;
+        }
+
+        .layer { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+
+        /* 背景层：使用下方生成的星露谷风市集图 */
+        #bg-layer {
+            background-image: url('./assets/video_background/screen_3_background.png');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* 带有市集黄昏温暖、但又带有一点金钱铜臭味的复古调色层 */
+        #ambient-overlay {
+            background: radial-gradient(circle at 50% 50%, rgba(255, 220, 100, 0.1) 0%, rgba(26, 15, 8, 0.4) 100%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* ==========================================================================
+           核心特效：金币神秘闪烁粒子（Glint）
+           ========================================================================== */
+        .coin-glint {
+            position: absolute;
+            width: 6px; height: 6px;
+            background-color: #fff;
+            box-shadow: 0 0 6px #ffdf3b, 0 0 12px #ff9600;
+            z-index: 6;
+            left: 45%; top: 55%; /* 定位在柜台中心金币交换的位置 */
+            animation: coinSparkle 1s infinite steps(4);
+        }
+
+        @keyframes coinSparkle {
+            0%, 100% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5) rotate(45deg); opacity: 1; }
+        }
+
+        /* ==========================================================================
+           商人与柜台（交互伪实体）
+           ========================================================================== */
+        #merchant {
+            position: absolute;
+            left: 35%; top: 48%;
+            width: 85px; height: 85px;
+            background-image: url('image_38141c.png'); /* 可复用老农夫改造成商人，或替换为新小人 */
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 5;
+            animation: merchantNod 1.2s infinite alternate ease-in-out;
+        }
+
+        @keyframes merchantNod {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(3px); } /* 缓缓点头，表示打量金币或思考 */
+        }
+
+        /* ==========================================================================
+           星露谷风经典的木质对话框
+           ========================================================================== */
+        #sd-dialog-box {
+            position: absolute;
+            bottom: 5%; left: 5%; right: 5%;
+            height: 25%;
+            background-color: #fce1b5;
+            border: 4px solid #b56c27;
+            box-shadow: 0 0 0 4px #eeb069, 0 8px 0 rgba(0,0,0,0.4);
+            z-index: 100;
+            padding: 20px 30px;
+            display: flex; flex-direction: column;
+        }
+
+        #sd-dialog-box::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid #da9100;
+            pointer-events: none;
+        }
+
+        .speaker-name {
+            font-size: 1.2rem;
+            color: #803800;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0px #fff;
+        }
+
+        .dialog-text {
+            font-size: 1.1rem;
+            color: #492310;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        .next-arrow {
+            position: absolute;
+            bottom: 12px; right: 20px;
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #492310;
+            animation: arrowBounce 0.4s infinite alternate;
+            display: none;
+        }
+
+        @keyframes arrowBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(5px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage">
+        <div id="bg-layer" class="layer"></div>
+        <div id="glint-container" class="layer"></div>
+        <div id="merchant"></div>
+        <div id="ambient-overlay" class="layer"></div>
+
+        <div id="sd-dialog-box">
+            <div class="speaker-name">沉思的市集商人</div>
+            <div id="text-target" class="dialog-text"></div>
+            <div id="next-indicator" class="next-arrow"></div>
+        </div>
+    </div>
+
+    <script>
+        // 动态生成金币闪烁粒子
+        const glintContainer = document.getElementById('glint-container');
+        setInterval(() => {
+            const glint = document.createElement('div');
+            glint.classList.add('coin-glint');
+            glint.style.left = (44 + Math.random() * 6) + '%';
+            glint.style.top = (53 + Math.random() * 5) + '%';
+            glintContainer.appendChild(glint);
+            setTimeout(() => glint.remove(), 1000);
+        }, 500);
+
+        // 第三幕剧本台词
+        const script = [
+            "（喧闹的皮埃尔市集里，两个素不相识、甚至语言不通的陌生人相遇了……）",
+            "他们没有剑拔弩张，也没有互相掠夺。仅仅凭借一枚小小的、印着古怪花纹的金币，就完成了交易。",
+            "摆在柜台上的，是沉甸甸、能填饱肚子的新鲜蔬菜，和能开山辟地的铁制工具。",
+            "可他拿走的，仅仅是一枚金币，或者未来更轻飘飘的一张纸。\n这难道不是魔法吗？",
+            "告诉我，是什么赋予了这枚金属如此可怕的法力？\n为什么所有人都会一致相信，一张无法果腹的纸，能买到最真实的食物？"
+        ];
+
+        let currentStep = 0;
+        const textTarget = document.getElementById('text-target');
+        const nextIndicator = document.getElementById('next-indicator');
+        const dialogBox = document.getElementById('sd-dialog-box');
+
+        function typeWriter(text, index = 0) {
+            nextIndicator.style.display = 'none';
+            if (index < text.length) {
+                textTarget.innerHTML = text.substring(0, index + 1);
+                setTimeout(() => typeWriter(text, index + 1), 40);
+            } else {
+                nextIndicator.style.display = 'block';
+            }
+        }
+
+        dialogBox.addEventListener('click', () => {
+            if (currentStep < script.length - 1) {
+                currentStep++;
+                typeWriter(script[currentStep]);
+            } else {
+                textTarget.innerHTML = "（金币在阳光下熠熠生辉，等待着你的回答……）";
+                nextIndicator.style.display = 'none';
+                dialogBox.style.boxShadow = "0 0 25px #ffdf3b"; // 提出终极金钱问题时框体泛起金光
+            }
+        });
+
+        window.onload = () => {
+            typeWriter(script[currentStep]);
+        };
+    </script>
+</body>
+</html>

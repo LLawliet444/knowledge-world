@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>人类简史 - 帝国与文化同化篇</title>
+    <link href="https://fonts.googleapis.com/css2?family=Zpix&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: #0d090a; 
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Zpix', monospace;
+        }
+
+        /* 锁死 16:9 画布尺寸，配合图片原生边框，维持最坚固的立体街机视窗 */
+        #stage {
+            position: relative;
+            width: 100vw; height: 56.25vw;
+            max-width: 100vh; max-height: 56.25vh;
+            background-color: #1a1016;
+            
+            /* 最外层 CSS 双重像素木质边框线 */
+            box-shadow: 
+                inset 0 0 0 8px #b56c27,  
+                inset 0 0 0 14px #492310, 
+                0 15px 40px rgba(0,0,0,0.9); 
+            
+            image-rendering: pixelated; 
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .layer { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+
+        /* 背景层：使用下方为你生成的凯旋城门背景图 */
+        #bg-layer {
+            position: absolute;
+            width: 100%; height: 100%; top: 0; left: 0;
+            background-image: url('./assets/video_background/screen_6_background.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 2; 
+        }
+
+        /* ==========================================================================
+           核心特效：历史文化长河的“金色微尘粒子”
+           ========================================================================== */
+        #dust-container {
+            position: absolute;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+            z-index: 4;
+            pointer-events: none;
+        }
+        .dust-particle {
+            position: absolute;
+            background-color: rgba(255, 215, 0, 0.4); /* 金色半透明微尘 */
+            box-shadow: 0 0 6px #ffd700;
+            border-radius: 50%;
+            animation: floatUp 4s linear infinite;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(110%) translateX(0) scale(1); opacity: 0; }
+            50% { opacity: 0.7; }
+            100% { transform: translateY(-10%) translateX(30px) scale(0.5); opacity: 0; }
+        }
+
+        /* ==========================================================================
+           带有一抹苍凉、黄昏史诗感的帝国黄昏滤镜
+           ========================================================================== */
+        #history-ambient-overlay {
+            position: absolute;
+            width: 100%; height: 100%; top: 0; left: 0;
+            /* 从顶部的血色黄昏过渡到底部的古老文化金光 */
+            background: linear-gradient(180deg, rgba(139, 0, 0, 0.15) 0%, rgba(218, 165, 32, 0.2) 100%);
+            pointer-events: none;
+            z-index: 5;
+            mix-blend-mode: overlay;
+        }
+
+        /* ==========================================================================
+           星露谷风经典的木质对话框
+           ========================================================================== */
+        #sd-dialog-box {
+            position: absolute;
+            bottom: 6%; left: 6%; right: 6%;
+            height: 25%;
+            background-color: #fce1b5;
+            border: 4px solid #b56c27;
+            box-shadow: 0 0 0 4px #eeb069, 0 8px 0 rgba(0,0,0,0.4);
+            z-index: 100;
+            padding: 15px 25px;
+            display: flex; flex-direction: column;
+        }
+
+        #sd-dialog-box::before {
+            content: '';
+            position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 2px solid #da9100;
+            pointer-events: none;
+        }
+
+        .speaker-name {
+            font-size: 1.2rem;
+            color: #803800;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0px #fff;
+        }
+
+        .dialog-text {
+            font-size: 1.1rem;
+            color: #492310;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        .next-arrow {
+            position: absolute; bottom: 12px; right: 20px;
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #492310;
+            animation: arrowBounce 0.4s infinite alternate;
+            display: none;
+        }
+
+        @keyframes arrowBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(5px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage">
+        <div id="bg-layer"></div>
+        <div id="dust-container"></div>
+        <div id="history-ambient-overlay"></div>
+
+        <div id="sd-dialog-box">
+            <div class="speaker-name">满脸困惑的皇帝信使</div>
+            <div id="text-target" class="dialog-text"></div>
+            <div id="next-indicator" class="next-arrow"></div>
+        </div>
+    </div>
+
+    <script>
+        // 动态生成历史尘埃粒子
+        const container = document.getElementById('dust-container');
+        function createParticle() {
+            const particle = document.createElement('div');
+            particle.classList.add('dust-particle');
+            
+            // 随机大小和位置
+            const size = Math.random() * 4 + 2;
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.left = `${Math.random() * 100}%`;
+            
+            // 随机动画时间
+            const duration = Math.random() * 3 + 3;
+            particle.style.animationDuration = `${duration}s`;
+            
+            container.appendChild(particle);
+            
+            // 动画结束后销毁
+            setTimeout(() => { particle.remove(); }, duration * 1000);
+        }
+        // 持续生成粒子
+        setInterval(createParticle, 150);
+
+        // 剧本台词
+        const script = [
+            "（夕阳如血，帝国的铁骑在一片废墟中踏入大门，他们是不可战胜的胜利者……）",
+            "看啊，将军手持着那柄沾满敌人鲜血的长剑，他的靴子践踏着这座古老城市的法则。",
+            "可为什么，随着他走过那道阴暗的城门，他身上的精钢铠甲却在被风化、溶解？",
+            "他的身后，没有披上我们帝国的猩红战袍，反而换上了被征服者那带有丝绸花纹的古老长衫。",
+            "他扔掉了战鼓，拿起了敌人的琴弦；他忘记了家乡的话语，开始念诵这片土地的神明谶言。",
+            "告诉我，这难道不是历史最讽刺的诡计吗？\n为什么军事上的绝对征服者，最终却总会被沦为奴隶的被征服者的文化，反向吞噬、彻底改变？！"
+        ];
+
+        let currentStep = 0;
+        const textTarget = document.getElementById('text-target');
+        const nextIndicator = document.getElementById('next-indicator');
+        const dialogBox = document.getElementById('sd-dialog-box');
+
+        function typeWriter(text, index = 0) {
+            nextIndicator.style.display = 'none';
+            if (index < text.length) {
+                textTarget.innerHTML = text.substring(0, index + 1);
+                setTimeout(() => typeWriter(text, index + 1), 40);
+            } else {
+                nextIndicator.style.display = 'block';
+            }
+        }
+
+        dialogBox.addEventListener('click', () => {
+            if (currentStep < script.length - 1) {
+                currentStep++;
+                typeWriter(script[currentStep]);
+            } else {
+                textTarget.innerHTML = "（金色的尘埃在空气中沉浮，远古的乐曲悄然响起，同化在无声中继续……）";
+                nextIndicator.style.display = 'none';
+                dialogBox.style.boxShadow = "0 0 25px #dad120"; // 提出最终历史质问时，框体泛起历史厚重感的黄金色光芒
+            }
+        });
+
+        window.onload = () => {
+            typeWriter(script[currentStep]);
+        };
+    </script>
+</body>
+</html>

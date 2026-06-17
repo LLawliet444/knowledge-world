@@ -17,14 +17,15 @@ export const sapiensWorld: World = {
     {
       id: "n_cog_rev",
       name: "认知革命",
+      icon: "/nodes/node_cave_painting.png",
       mysteryQuestion: "是什么让智人和其他动物不同？",
       gateNpc: {
         id: "gate_storyteller",
         title: "讲故事的人",
         avatar: "/nodes/npc_storyteller.png",
       },
-      position: { x: 200, y: 780 },
-      neighbors: ["n_fire_ctrl", "n_agri_rev"],
+      position: { x: 500, y: 820 },
+      neighbors: ["n_fire_ctrl"],
       nextDiscoveryId: "n_fire_ctrl",
       sourceExcerpt:
         "约七万年前，智人开始拥有虚构故事的能力。这使得他们能突破邓巴数字，组织大规模协作。",
@@ -63,13 +64,14 @@ export const sapiensWorld: World = {
     {
       id: "n_fire_ctrl",
       name: "用火控制",
+      icon: "/nodes/node_fire.png",
       mysteryQuestion: "火为什么改变了人类？",
       gateNpc: {
         id: "gate_fire_keeper",
         title: "持火者",
         avatar: "/nodes/node_fire.png",
       },
-      position: { x: 420, y: 680 },
+      position: { x: 760, y: 850 },
       neighbors: ["n_cog_rev", "n_agri_rev"],
       nextDiscoveryId: "n_agri_rev",
       sourceExcerpt:
@@ -109,14 +111,15 @@ export const sapiensWorld: World = {
     {
       id: "n_agri_rev",
       name: "农业革命",
+      icon: "/nodes/node_wheat.png",
       mysteryQuestion: "为什么农民比猎人更累？",
       gateNpc: {
         id: "gate_farmer",
         title: "老农夫",
         avatar: "/nodes/npc_farmer.png",
       },
-      position: { x: 640, y: 780 },
-      neighbors: ["n_fire_ctrl", "n_money", "n_writing"],
+      position: { x: 1000, y: 830 },
+      neighbors: ["n_fire_ctrl", "n_money"],
       nextDiscoveryId: "n_money",
       sourceExcerpt:
         "约一万年前，人类从采集走向农耕。小麦在中东、水稻在东亚同时被驯化。农业带来人口爆炸，但个体幸福未必提升。",
@@ -155,13 +158,14 @@ export const sapiensWorld: World = {
     {
       id: "n_money",
       name: "货币的诞生",
+      icon: "/nodes/node_coin.png",
       mysteryQuestion: "为什么一张纸能买到真实食物？",
       gateNpc: {
         id: "gate_merchant",
         title: "商人",
         avatar: "/nodes/npc_merchant.png",
       },
-      position: { x: 860, y: 660 },
+      position: { x: 1150, y: 700 },
       neighbors: ["n_agri_rev", "n_imagined_order"],
       nextDiscoveryId: "n_imagined_order",
       sourceExcerpt:
@@ -201,13 +205,14 @@ export const sapiensWorld: World = {
     {
       id: "n_imagined_order",
       name: "想象的秩序",
+      icon: "/nodes/node_scroll.png",
       mysteryQuestion: "为什么国家和公司都像故事？",
       gateNpc: {
         id: "gate_scribe",
         title: "石碑书记",
         avatar: "/nodes/npc_scribe.png",
       },
-      position: { x: 1080, y: 520 },
+      position: { x: 1250, y: 550 },
       neighbors: ["n_money", "n_empire"],
       nextDiscoveryId: "n_empire",
       sourceExcerpt:
@@ -247,13 +252,14 @@ export const sapiensWorld: World = {
     {
       id: "n_empire",
       name: "帝国的崛起",
+      icon: "/nodes/node_ship.png",
       mysteryQuestion: "为什么征服者最后也会被文化改变？",
       gateNpc: {
         id: "gate_emperor",
         title: "帝王使者",
         avatar: "/nodes/npc_emperor.png",
       },
-      position: { x: 1300, y: 680 },
+      position: { x: 1200, y: 400 },
       neighbors: ["n_imagined_order", "n_sci_rev"],
       nextDiscoveryId: "n_sci_rev",
       sourceExcerpt:
@@ -293,13 +299,14 @@ export const sapiensWorld: World = {
     {
       id: "n_sci_rev",
       name: "科学革命",
+      icon: "/nodes/node_brain.png",
       mysteryQuestion: "为什么承认无知反而带来力量？",
       gateNpc: {
         id: "gate_astronomer",
         title: "观星者",
         avatar: "/nodes/npc_astronomer.png",
       },
-      position: { x: 1520, y: 520 },
+      position: { x: 1300, y: 220 },
       neighbors: ["n_empire", "n_capitalism"],
       nextDiscoveryId: "n_capitalism",
       sourceExcerpt:
@@ -339,13 +346,14 @@ export const sapiensWorld: World = {
     {
       id: "n_capitalism",
       name: "资本与科学联姻",
+      icon: "/nodes/node_coin.png",
       mysteryQuestion: "为什么信用让远征成为可能？",
       gateNpc: {
         id: "gate_capitalist",
         title: "银行家",
         avatar: "/nodes/node_coin.png",
       },
-      position: { x: 1740, y: 620 },
+      position: { x: 1500, y: 100 },
       neighbors: ["n_sci_rev"],
       nextDiscoveryId: null,
       sourceExcerpt:
