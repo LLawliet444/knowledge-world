@@ -48,7 +48,7 @@ def setup_logging() -> None:
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
+        cache_logger_on_first_use=False,
     )
 
     # 2. 根 logger 清掉默认 handler，避免重复

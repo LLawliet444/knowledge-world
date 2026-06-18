@@ -11,7 +11,7 @@ from app.config import settings
 from app.core.llm.adapter import LLMAdapter
 from app.core.trace import get_trace_id
 
-logger = structlog.get_logger()
+logger = structlog.get_logger("app.core.llm.openai_adapter")
 
 
 class OpenAIAdapter(LLMAdapter):
