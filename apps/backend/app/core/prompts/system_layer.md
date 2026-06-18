@@ -14,16 +14,9 @@
   "teaching_content": {
     "format": "model",
     "content": "认知模型结构文本"
-  },
-  "evaluation": {
-    "can_advance": true 或 false,
-    "reason": "简短判断理由",
-    "summary": "用户在本层达成的理解总结（不超过60字）"
   }
 }
 
-关于 evaluation：
-- 检查用户的历史回答是否覆盖了「本层掌握标准」
-- 如果对话轮次少于 3 轮，请将 can_advance 设为 false
-- 如果用户表达了关键误解，需要继续追问
-- can_advance = true 时，表示该节点学习完成
+注意：
+- 只输出 teaching_content，不要输出 evaluation
+- 评估由独立的评估模块负责，本层只负责整合认知模型
