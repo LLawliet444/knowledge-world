@@ -81,7 +81,7 @@ export interface WorldNode {
   iconNpc: string;        // 节点 NPC 图标（如 "/scenes/cave_fire/gate_npc.png"），最终回答前显示
   mysteryQuestion: string; // 地图上代替节点名显示的一句谜题文案
   gateNpc: GateNpc;       // 关卡 NPC 信息（对话框内继续使用）
-  position: { x: number; y: number }; // 节点在地图上的像素坐标（四张地图共用）
+  positions: Record<LayerType, { x: number; y: number }>; // 节点在四层地图上各自的像素坐标
   neighbors: string[];    // 相邻节点 ID 列表
   nextDiscoveryId: string | null; // 当前节点完成后优先显露的 1 个相邻节点
   sourceExcerpt: string;  // 原文依据片段
@@ -98,7 +98,7 @@ export interface World {
   title: string;
   biomeTheme: string;
   startNodeId: string;          // 起始节点 ID
-  scholarStart: { x: number; y: number }; // 学者在地图上的独立起始坐标（不依赖节点位置）
+  scholarStartByDepth: Record<LayerType, { x: number; y: number }>; // 学者在四层地图各自的起始坐标
   nodes: WorldNode[];
   layers: LayerType[];          // ["what", "how", "why", "system"]
 }

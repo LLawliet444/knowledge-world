@@ -38,6 +38,7 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     nodeProgress,
     scholarPos,
     moveScholar,
+    switchDepth,
     finishDepthSwitch,
   } = useWorldStore();
 
@@ -69,6 +70,9 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
 
   const posProxy = useRef({ x: scholarPos.x, y: scholarPos.y });
 
+  // 当前深度的节点坐标辅助函数
+  const nodePos = (n: WorldNode) => n.positions[currentDepth];
+
   // 预加载 PixiJS 纹理（只需加载一次）
   useEffect(() => {
     if (!world) return;
@@ -84,9 +88,9 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   // 世界切换时重置学者位置
   useEffect(() => {
     if (!world) return;
-    posProxy.current.x = world.scholarStart.x;
-    posProxy.current.y = world.scholarStart.y;
-    moveScholar(world.scholarStart.x, world.scholarStart.y);
+    posProxy.current.x = world.scholarStartByDepth[currentDepth].x;
+    posProxy.current.y = world.scholarStartByDepth[currentDepth].y;
+    moveScholar(world.scholarStartByDepth[currentDepth].x, world.scholarStartByDepth[currentDepth].y);
     setCurrentNodeId(world.startNodeId);
   }, [world?.worldId]);
 
@@ -108,7 +112,7 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
           const depthState = progress?.[currentDepth] ?? "locked";
           return depthState !== "locked";
         })
-        .map((n) => ({ x: n.position.x, y: n.position.y }))
+        .map((n) => ({ x: nodePos(n).x, y: nodePos(n).y }))
     : [];
 
   const lockedNodes = world
@@ -118,7 +122,7 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
           const depthState = progress?.[currentDepth] ?? "locked";
           return depthState === "locked";
         })
-        .map((n) => ({ x: n.position.x, y: n.position.y }))
+        .map((n) => ({ x: nodePos(n).x, y: nodePos(n).y }))
     : [];
 
   const handleNodeClick = useCallback(
@@ -129,8 +133,8 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
       const fromY = posProxy.current.y;
 
       // 目标位置：节点左下方（学者站在节点旁边，面朝节点）
-      const targetX = node.position.x - 100;
-      const targetY = node.position.y + 30;
+      const targetX = nodePos(node).x - 100;
+      const targetY = nodePos(node).y + 30;
       const dx = targetX - fromX;
       const dy = targetY - fromY;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -253,10 +257,10 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
       const b = pathChain[i + 1];
       if (!a || !b) continue;
 
-      const midX = (a.position.x + b.position.x) / 2;
-      const midY = (a.position.y + b.position.y) / 2;
-      const dx = b.position.x - a.position.x;
-      const dy = b.position.y - a.position.y;
+      const midX = (nodePos(a).x + nodePos(b).x) / 2;
+      const midY = (nodePos(a).y + nodePos(b).y) / 2;
+      const dx = nodePos(b).x - nodePos(a).x;
+      const dy = nodePos(b).y - nodePos(a).y;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
       const offset = (i % 2 === 0 ? 1 : -1) * Math.min(80, len * 0.15);
       const bendX = midX + (-dy / len) * offset;
@@ -266,8 +270,8 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
       const depthState = progress?.[currentDepth] ?? "locked";
       const revealed = depthState !== "locked";
 
-      segs.push({ x1: a.position.x, y1: a.position.y, x2: bendX, y2: bendY, revealed });
-      segs.push({ x1: bendX, y1: bendY, x2: b.position.x, y2: b.position.y, revealed });
+      segs.push({ x1: nodePos(a).x, y1: nodePos(a).y, x2: bendX, y2: bendY, revealed });
+      segs.push({ x1: bendX, y1: bendY, x2: nodePos(b).x, y2: nodePos(b).y, revealed });
     }
     return segs;
   }, [pathChain, nodeProgress, currentDepth]);
@@ -348,6 +352,7 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
                   nodeClear={progress?.nodeClear ?? false}
                   finalQuestion={progress?.finalQuestion ?? "locked"}
                   scholarPos={scholarPos}
+                  pos={nodePos(node)}
                   onClick={handleNodeClick}
                 />
               );

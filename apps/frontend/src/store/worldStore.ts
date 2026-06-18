@@ -80,7 +80,7 @@ export const useWorldStore = create<WorldState & WorldActions>((set, get) => ({
       nodeProgress: progress,
       currentDepth: "what",
       fogPercentage: calcFogPercentage(world, progress),
-      scholarPos: { x: world.scholarStart.x, y: world.scholarStart.y },
+      scholarPos: { x: world.scholarStartByDepth.what.x, y: world.scholarStartByDepth.what.y },
     });
   },
 
@@ -123,9 +123,15 @@ export const useWorldStore = create<WorldState & WorldActions>((set, get) => ({
   },
 
   finishDepthSwitch: () => {
-    const { switchingTargetDepth } = get();
-    if (!switchingTargetDepth) return;
-    set({ currentDepth: switchingTargetDepth, isSwitchingDepth: false, switchingTargetDepth: null });
+    const { switchingTargetDepth, world } = get();
+    if (!switchingTargetDepth || !world) return;
+    const start = world.scholarStartByDepth[switchingTargetDepth];
+    set({
+      currentDepth: switchingTargetDepth,
+      isSwitchingDepth: false,
+      switchingTargetDepth: null,
+      scholarPos: { x: start.x, y: start.y },
+    });
   },
 
   moveScholar: (x, y) => set({ scholarPos: { x, y } }),

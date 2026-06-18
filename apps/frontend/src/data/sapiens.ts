@@ -10,7 +10,7 @@ export const sapiensWorld: World = {
   title: "人类简史",
   biomeTheme: "history-civilization",
   startNodeId: "n_cog_rev",
-  scholarStart: { x: 80, y: 800 },
+  scholarStartByDepth: { what: { x: 80, y: 800 }, how: { x: 80, y: 800 }, why: { x: 80, y: 800 }, system: { x: 80, y: 800 } },
   layers: ["what", "how", "why", "system"],
 
   nodes: [
@@ -26,7 +26,7 @@ export const sapiensWorld: World = {
         title: "讲故事的人",
         avatar: "/nodes/npc_storyteller.png",
       },
-      position: { x: 500, y: 820 },
+      positions: { what: { x: 500, y: 820 }, how: { x: 500, y: 820 }, why: { x: 500, y: 820 }, system: { x: 500, y: 820 } },
       neighbors: ["n_fire_ctrl"],
       nextDiscoveryId: "n_fire_ctrl",
       sourceExcerpt:
@@ -90,7 +90,7 @@ export const sapiensWorld: World = {
         title: "持火者",
         avatar: "/nodes/node_fire.png",
       },
-      position: { x: 760, y: 850 },
+      positions: { what: { x: 760, y: 850 }, how: { x: 760, y: 850 }, why: { x: 760, y: 850 }, system: { x: 760, y: 850 } },
       neighbors: ["n_cog_rev", "n_agri_rev"],
       nextDiscoveryId: "n_agri_rev",
       sourceExcerpt:
@@ -151,7 +151,7 @@ export const sapiensWorld: World = {
         title: "老农夫",
         avatar: "/nodes/npc_farmer.png",
       },
-      position: { x: 1000, y: 830 },
+      positions: { what: { x: 1000, y: 830 }, how: { x: 1000, y: 830 }, why: { x: 1000, y: 830 }, system: { x: 1000, y: 830 } },
       neighbors: ["n_fire_ctrl", "n_money"],
       nextDiscoveryId: "n_money",
       sourceExcerpt:
@@ -215,7 +215,7 @@ export const sapiensWorld: World = {
         title: "商人",
         avatar: "/nodes/npc_merchant.png",
       },
-      position: { x: 1150, y: 700 },
+      positions: { what: { x: 1150, y: 700 }, how: { x: 1150, y: 700 }, why: { x: 1150, y: 700 }, system: { x: 1150, y: 700 } },
       neighbors: ["n_agri_rev", "n_imagined_order"],
       nextDiscoveryId: "n_imagined_order",
       sourceExcerpt:
@@ -279,7 +279,7 @@ export const sapiensWorld: World = {
         title: "石碑书记",
         avatar: "/nodes/npc_scribe.png",
       },
-      position: { x: 1250, y: 550 },
+      positions: { what: { x: 1250, y: 550 }, how: { x: 1250, y: 550 }, why: { x: 1250, y: 550 }, system: { x: 1250, y: 550 } },
       neighbors: ["n_money", "n_empire"],
       nextDiscoveryId: "n_empire",
       sourceExcerpt:
@@ -343,7 +343,7 @@ export const sapiensWorld: World = {
         title: "帝王使者",
         avatar: "/nodes/npc_emperor.png",
       },
-      position: { x: 1200, y: 400 },
+      positions: { what: { x: 1200, y: 400 }, how: { x: 1200, y: 400 }, why: { x: 1200, y: 400 }, system: { x: 1200, y: 400 } },
       neighbors: ["n_imagined_order", "n_sci_rev"],
       nextDiscoveryId: "n_sci_rev",
       sourceExcerpt:
@@ -407,7 +407,7 @@ export const sapiensWorld: World = {
         title: "观星者",
         avatar: "/nodes/npc_astronomer.png",
       },
-      position: { x: 1300, y: 220 },
+      positions: { what: { x: 1300, y: 220 }, how: { x: 1300, y: 220 }, why: { x: 1300, y: 220 }, system: { x: 1300, y: 220 } },
       neighbors: ["n_empire", "n_capitalism"],
       nextDiscoveryId: "n_capitalism",
       sourceExcerpt:
@@ -471,7 +471,7 @@ export const sapiensWorld: World = {
         title: "银行家",
         avatar: "/nodes/node_coin.png",
       },
-      position: { x: 1500, y: 100 },
+      positions: { what: { x: 1500, y: 100 }, how: { x: 1500, y: 100 }, why: { x: 1500, y: 100 }, system: { x: 1500, y: 100 } },
       neighbors: ["n_sci_rev"],
       nextDiscoveryId: null,
       sourceExcerpt:

@@ -17,6 +17,7 @@ interface NodeSpriteProps {
   nodeClear: boolean;
   finalQuestion: "locked" | "available" | "completed";
   scholarPos: { x: number; y: number };
+  pos: { x: number; y: number };
   onClick?: (node: WorldNode) => void;
 }
 
@@ -27,6 +28,7 @@ export const NodeSprite: React.FC<NodeSpriteProps> = ({
   nodeClear,
   finalQuestion,
   scholarPos,
+  pos,
   onClick,
 }) => {
   const visual = NODE_VISUAL[state];
@@ -64,12 +66,12 @@ export const NodeSprite: React.FC<NodeSpriteProps> = ({
     : 12 / 128;
 
   // NPC 面朝学者：原图均面朝左，学者在节点右侧时镜像翻转
-  const flipX = isNpcMode && scholarPos.x > node.position.x ? -1 : 1;
+  const flipX = isNpcMode && scholarPos.x > pos.x ? -1 : 1;
 
   return (
     <Container
-      x={node.position.x}
-      y={node.position.y}
+      x={pos.x}
+      y={pos.y}
       alpha={visual.dimmed ? (hover ? 0.7 : 0.4) : 1}
       eventMode={eventMode}
       cursor={cursor}
