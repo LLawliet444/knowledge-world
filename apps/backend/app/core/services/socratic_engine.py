@@ -19,17 +19,49 @@ _LAYER_FORMAT = {
     "system": "model",
 }
 
+# 各 format 期望的非空字段（用于校验 LLM 输出是否合规）
+_EXPECTED_FIELDS = {
+    "guided_question": ["opening", "core_question", "thinking_directions"],
+    "essence": ["content"],
+    "model": ["content"],
+}
 
-def _build_teaching_content(tc: dict, layer: str) -> TeachingContent:
-    """从 LLM 返回的 teaching_content dict 构造 TeachingContent 对象"""
+
+def _build_teaching_content(
+    tc: dict,
+    layer: str,
+    *,
+    trace_id: str,
+    session_id: str,
+    node_id: str,
+) -> TeachingContent:
+    """从 LLM 返回的 teaching_content dict 构造 TeachingContent 对象，并校验字段完整性"""
     fmt = tc.get("format") or _LAYER_FORMAT.get(layer, "guided_question")
-    return TeachingContent(
+    result = TeachingContent(
         format=fmt,
         opening=tc.get("opening"),
         core_question=tc.get("core_question"),
         thinking_directions=tc.get("thinking_directions"),
         content=tc.get("content"),
     )
+
+    # 校验 LLM 返回的字段是否符合该 format 的预期
+    expected = _EXPECTED_FIELDS.get(fmt, [])
+    missing = [f for f in expected if not getattr(result, f)]
+    if missing:
+        logger.warning(
+            "teaching_content_field_missing",
+            trace_id=trace_id,
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            format=fmt,
+            missing_fields=missing,
+            received_keys=list(tc.keys()),
+            raw_tc=tc,
+        )
+
+    return result
 
 
 def _fallback_teaching(layer: str) -> TeachingContent:
@@ -74,7 +106,9 @@ class SocraticEngine:
                 max_tokens=1536,
             )
             tc = raw.get("teaching_content", {})
-            result = _build_teaching_content(tc, layer)
+            result = _build_teaching_content(
+                tc, layer, trace_id=trace_id, session_id=session_id, node_id=node_id
+            )
             logger.info(
                 "engine_first_question_done",
                 trace_id=trace_id,
@@ -139,7 +173,9 @@ class SocraticEngine:
             )
 
             tc = raw.get("teaching_content", {})
-            teaching = _build_teaching_content(tc, layer)
+            teaching = _build_teaching_content(
+                tc, layer, trace_id=trace_id, session_id=session_id, node_id=node_id
+            )
 
             ev = raw.get("evaluation")
             if ev is not None and ev.get("can_advance") is not None:
