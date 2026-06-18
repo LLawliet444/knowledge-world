@@ -37,6 +37,7 @@ class SessionManager:
         state.current_round = 0
         state.layer_dialogue = []
         state.layer_summaries = {}
+        state.compressed_summary = ""
         state.node_completed = False
         logger.info(
             "node_entered",
@@ -86,6 +87,7 @@ class SessionManager:
             state.current_layer = next_lyr
             state.current_round = 0
             state.layer_dialogue = []
+            state.compressed_summary = ""
             logger.info(
                 "layer_advanced",
                 trace_id=get_trace_id(),

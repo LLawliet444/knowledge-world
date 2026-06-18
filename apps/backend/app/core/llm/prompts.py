@@ -63,6 +63,7 @@ def build_teaching_messages(
     user_input: str,
     round_num: int,
     dialogue_history: list[dict[str, str]],
+    compressed_summary: str = "",
 ) -> list[dict[str, str]]:
     """构建纯教学 prompt：只生成教学内容，不包含评估
 
@@ -76,9 +77,11 @@ def build_teaching_messages(
     user_parts.append(f"【常见误解】\n{misconceptions}\n")
     if previous_summary:
         user_parts.append(f"【前层总结】\n{previous_summary}\n")
+    if compressed_summary:
+        user_parts.append(f"【本层早期对话摘要】\n{compressed_summary}\n")
     user_parts.append(f"【当前轮次】\n第 {round_num} 轮\n")
     if dialogue_history:
-        user_parts.append(f"【历史对话】\n{_format_dialogue(dialogue_history)}\n")
+        user_parts.append(f"【近期历史对话】\n{_format_dialogue(dialogue_history)}\n")
     user_parts.append(f"【用户最新回答】\n{user_input}\n")
     user_parts.append("请输出 teaching_content（教学内容），不包含 evaluation。")
 
@@ -97,6 +100,7 @@ def build_evaluation_messages(
     user_input: str,
     round_num: int,
     dialogue_history: list[dict[str, str]],
+    compressed_summary: str = "",
 ) -> list[dict[str, str]]:
     """构建纯评估 prompt：只判断用户是否掌握本层，不生成教学内容
 
@@ -110,9 +114,11 @@ def build_evaluation_messages(
     user_parts.append(f"【常见误解】\n{misconceptions}\n")
     if previous_summary:
         user_parts.append(f"【前层总结】\n{previous_summary}\n")
+    if compressed_summary:
+        user_parts.append(f"【本层早期对话摘要】\n{compressed_summary}\n")
     user_parts.append(f"【当前轮次】\n第 {round_num} 轮\n")
     if dialogue_history:
-        user_parts.append(f"【历史对话】\n{_format_dialogue(dialogue_history)}\n")
+        user_parts.append(f"【近期历史对话】\n{_format_dialogue(dialogue_history)}\n")
     user_parts.append(f"【用户最新回答】\n{user_input}\n")
     user_parts.append("请输出 evaluation（评估结果），不包含 teaching_content。")
 
@@ -132,6 +138,7 @@ def build_merged_messages(
     round_num: int,
     dialogue_history: list[dict[str, str]],
     can_evaluate: bool,
+    compressed_summary: str = "",
 ) -> list[dict[str, str]]:
     """构建合并 prompt：一次调用同时产生教学内容和可选评估
 
@@ -145,9 +152,11 @@ def build_merged_messages(
     user_parts.append(f"【常见误解】\n{misconceptions}\n")
     if previous_summary:
         user_parts.append(f"【前层总结】\n{previous_summary}\n")
+    if compressed_summary:
+        user_parts.append(f"【本层早期对话摘要】\n{compressed_summary}\n")
     user_parts.append(f"【当前轮次】\n第 {round_num} 轮\n")
     if dialogue_history:
-        user_parts.append(f"【历史对话】\n{_format_dialogue(dialogue_history)}\n")
+        user_parts.append(f"【近期历史对话】\n{_format_dialogue(dialogue_history)}\n")
     user_parts.append(f"【用户最新回答】\n{user_input}\n")
     user_parts.append("请输出 teaching_content（教学内容）。")
     if can_evaluate:

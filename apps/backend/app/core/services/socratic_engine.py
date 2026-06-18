@@ -196,6 +196,7 @@ class SocraticEngine:
         dialogue_history: list[dict[str, str]],
         previous_summary: str,
         can_evaluate: bool,
+        compressed_summary: str = "",
     ) -> tuple[TeachingContent, Evaluation | None]:
         """用户回答后：生成教学引导 + 可选评估
 
@@ -216,6 +217,8 @@ class SocraticEngine:
             can_evaluate=can_evaluate,
             input_len=len(user_input),
             mode="parallel" if can_evaluate else "single",
+            dialogue_history_len=len(dialogue_history),
+            has_compressed_summary=bool(compressed_summary),
         )
 
         scope_summary = "\n".join(scope.get("scope", []))
@@ -236,6 +239,7 @@ class SocraticEngine:
                 user_input=user_input,
                 round_num=round_num,
                 dialogue_history=dialogue_history,
+                compressed_summary=compressed_summary,
             )
 
         # 评估轮次：并行调用 teaching + evaluation
@@ -251,6 +255,7 @@ class SocraticEngine:
             user_input=user_input,
             round_num=round_num,
             dialogue_history=dialogue_history,
+            compressed_summary=compressed_summary,
         )
 
     async def _interact_single(
@@ -267,6 +272,7 @@ class SocraticEngine:
         user_input: str,
         round_num: int,
         dialogue_history: list[dict[str, str]],
+        compressed_summary: str = "",
     ) -> tuple[TeachingContent, Evaluation | None]:
         """非评估轮次：单调用生成 teaching"""
         messages = build_merged_messages(
@@ -279,6 +285,7 @@ class SocraticEngine:
             round_num=round_num,
             dialogue_history=dialogue_history,
             can_evaluate=False,
+            compressed_summary=compressed_summary,
         )
         try:
             raw = await self.llm.chat_completion_json(
@@ -328,6 +335,7 @@ class SocraticEngine:
         user_input: str,
         round_num: int,
         dialogue_history: list[dict[str, str]],
+        compressed_summary: str = "",
     ) -> tuple[TeachingContent, Evaluation | None]:
         """评估轮次：并行调用 teaching + evaluation
 
@@ -345,6 +353,7 @@ class SocraticEngine:
             user_input=user_input,
             round_num=round_num,
             dialogue_history=dialogue_history,
+            compressed_summary=compressed_summary,
         )
         eval_messages = build_evaluation_messages(
             layer=layer,
@@ -355,6 +364,7 @@ class SocraticEngine:
             user_input=user_input,
             round_num=round_num,
             dialogue_history=dialogue_history,
+            compressed_summary=compressed_summary,
         )
 
         # 并行发起两个 LLM 调用，return_exceptions=True 避免一个失败导致整体失败

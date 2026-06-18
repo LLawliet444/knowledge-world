@@ -23,6 +23,16 @@ class TeachingContent(BaseModel):
             parts.append("思考方向：" + "；".join(self.thinking_directions))
         return "\n".join(parts) if parts else ""
 
+    def core_text(self) -> str:
+        """返回核心问题文本，用于对话历史滑动窗口（不含 opening 和 thinking_directions）
+
+        - how 层（guided_question）：只保留 core_question
+        - why/system 层：保留 content
+        """
+        if self.content:
+            return self.content
+        return self.core_question or self.opening or ""
+
 
 class Evaluation(BaseModel):
     can_advance: bool

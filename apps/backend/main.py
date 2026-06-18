@@ -89,6 +89,10 @@ async def enter_node(session_id: str, node_id: str):
         scope=scope,
         previous_summary="",
     )
+    # 把首问存入对话历史（只存核心问题）
+    state.layer_dialogue.append(
+        {"role": "ai", "content": teaching.core_text()}
+    )
 
     return EnterNodeResponse(
         current_layer="how",
@@ -130,6 +134,12 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
     can_evaluate = state.can_evaluate
     previous_summary = state.previous_summary
 
+    # 滑动窗口：传给 engine 的历史对话排除当前用户回答（user_input 已单独传）
+    # dialogue_window() 返回最近 3 轮，最后一条是当前用户回答，去掉它
+    window = state.dialogue_window()
+    dialogue_history = window[:-1] if window else []
+    compressed_summary = state.compressed_summary
+
     teaching, evaluation = await socratic_engine.interact_and_evaluate(
         session_id=session_id,
         node_id=node_id,
@@ -137,17 +147,21 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
         scope=scope,
         user_input=req.user_input,
         round_num=round_num,
-        dialogue_history=state.layer_dialogue[:-1],
+        dialogue_history=dialogue_history,
         previous_summary=previous_summary,
         can_evaluate=can_evaluate,
+        compressed_summary=compressed_summary,
     )
 
     should_advance = evaluation is not None and evaluation.can_advance
 
     if not should_advance:
+        # AI 回复只存核心问题，不存 opening 和 thinking_directions
         state.layer_dialogue.append(
-            {"role": "ai", "content": teaching.full_text()}
+            {"role": "ai", "content": teaching.core_text()}
         )
+        # 滑动窗口压缩：超过 3 轮时把最老的压缩进 compressed_summary
+        state.compress_old_dialogue()
         logger.info(
             "answer_continue_layer",
             trace_id=get_trace_id(),
@@ -155,6 +169,8 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
             node_id=node_id,
             layer=layer,
             round=round_num,
+            dialogue_items=len(state.layer_dialogue),
+            has_compressed_summary=bool(state.compressed_summary),
         )
         return AnswerResponse(
             session_id=session_id,
@@ -196,7 +212,7 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
         previous_summary=state.previous_summary,
     )
     state.layer_dialogue.append(
-        {"role": "ai", "content": next_teaching.full_text()}
+        {"role": "ai", "content": next_teaching.core_text()}
     )
 
     logger.info(
