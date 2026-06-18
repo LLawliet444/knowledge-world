@@ -9,12 +9,12 @@ def _read(path: str) -> str:
 
 
 def load_question_prompts() -> tuple[str, str]:
-    return (_read("question/system.txt"), _read("question/user.txt"))
+    return (_read("question/system.md"), _read("question/user.md"))
 
 
 def load_feedback_prompts() -> tuple[str, str]:
-    return (_read("feedback/system.txt"), _read("feedback/user.txt"))
+    return (_read("feedback/system.md"), _read("feedback/user.md"))
 
 
 def load_final_question_prompts() -> tuple[str, str]:
-    return (_read("final_question/system.txt"), _read("final_question/user.txt"))
+    return (_read("final_question/system.md"), _read("final_question/user.md"))
