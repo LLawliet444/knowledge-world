@@ -99,14 +99,22 @@ export async function getQuestion(req: QuestionRequest): Promise<QuestionRespons
     depth: req.depth,
   };
 
-  // 后端 QuestionRequest 无 round 字段，精确构建请求体
+  // 后端 QuestionRequest.mentor_prompts 只接受 dict[str, str]
+  // 剔除前端数据中的数组字段（whatDialogue/whatScrolls/whatWrapUp）
+  const prompts = req.mentor_prompts;
   const body = {
     node_id: req.node_id,
     node_name: req.node_name,
     depth: req.depth,
     mystery_question: req.mystery_question,
     source_excerpt: req.source_excerpt,
-    mentor_prompts: req.mentor_prompts,
+    mentor_prompts: {
+      whatIntro: prompts.whatIntro,
+      how: prompts.how,
+      why: prompts.why,
+      system: prompts.system,
+      finalReturn: prompts.finalReturn,
+    },
   };
 
   const raw = await apiFetch<{ question: string; followups: string[] }>(
