@@ -6,22 +6,19 @@ interface ScholarLoadingProps {
 }
 
 const SPRITESHEET = "/loading/explorer_drawing_8_frame_spritesheet.png";
-const FRAME_W = 341;
-const FRAME_H = 341;
-const FRAMES = 9;
 
 const scholarLoadingKeyframes = `
 @keyframes scholar-cycle {
-  0% { background-position: 0px 0px; }
-  11.11% { background-position: -${FRAME_W}px 0px; }
-  22.22% { background-position: -${FRAME_W * 2}px 0px; }
-  33.33% { background-position: 0px -${FRAME_H}px; }
-  44.44% { background-position: -${FRAME_W}px -${FRAME_H}px; }
-  55.55% { background-position: -${FRAME_W * 2}px -${FRAME_H}px; }
-  66.66% { background-position: 0px -${FRAME_H * 2}px; }
-  77.77% { background-position: -${FRAME_W}px -${FRAME_H * 2}px; }
-  88.88% { background-position: -${FRAME_W * 2}px -${FRAME_H * 2}px; }
-  100% { background-position: -${FRAME_W * 2}px -${FRAME_H * 2}px; }
+  0% { background-position: 0% 0%; }
+  11.11% { background-position: 50% 0%; }
+  22.22% { background-position: 100% 0%; }
+  33.33% { background-position: 0% 50%; }
+  44.44% { background-position: 50% 50%; }
+  55.55% { background-position: 100% 50%; }
+  66.66% { background-position: 0% 100%; }
+  77.77% { background-position: 50% 100%; }
+  88.88% { background-position: 100% 100%; }
+  100% { background-position: 100% 100%; }
 }
 `;
 
@@ -29,20 +26,17 @@ export const ScholarLoading: React.FC<ScholarLoadingProps> = ({
   animating = false,
   size = 120,
 }) => {
-  const scale = size / FRAME_W;
-  const containerW = FRAME_W * scale;
-  const containerH = FRAME_H * scale;
-
   return (
     <>
       <style>{scholarLoadingKeyframes}</style>
       <div
         style={{
-          width: containerW,
-          height: containerH,
+          width: size,
+          height: size,
           backgroundImage: `url(${SPRITESHEET})`,
-          backgroundSize: `${1024 * scale}px ${1024 * scale}px`,
-          backgroundPosition: animating ? undefined : "0px 0px",
+          backgroundSize: "300% 300%",
+          backgroundPosition: "0% 0%",
+          backgroundRepeat: "no-repeat",
           animation: animating
             ? `scholar-cycle 1.08s steps(1) infinite`
             : "none",
