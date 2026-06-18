@@ -42,6 +42,7 @@ apps/frontend/vite.config.d.ts
 
 # Logs
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
