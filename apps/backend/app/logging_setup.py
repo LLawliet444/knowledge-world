@@ -12,6 +12,7 @@ _LOG_DIR.mkdir(exist_ok=True)
 
 
 def _inject_trace_id(_, __, event_dict):
+    """注入当前请求的 trace_id（ContextVar 已在中间件层设置）"""
     event_dict.setdefault("trace_id", get_trace_id())
     return event_dict
 
@@ -50,18 +51,18 @@ def setup_logging() -> None:
         cache_logger_on_first_use=True,
     )
 
-    # 2. 根 logger 清掉默认 handler
+    # 2. 根 logger 清掉默认 handler，避免重复
     root = logging.getLogger()
     root.handlers.clear()
     root.setLevel(logging.INFO)
 
-    # 3. 控制台 handler（保持彩色可读输出）
+    # 3. 控制台 handler：INFO 及以上，纯文本可读
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
     console.setFormatter(logging.Formatter("%(message)s"))
     root.addHandler(console)
 
-    # 4. 全量日志文件（JSONL，按天滚动，保留 7 天）
+    # 4. 全量日志文件（JSONL，按天滚动，追加模式，保留 7 天）
     app_file = logging.handlers.TimedRotatingFileHandler(
         filename=_LOG_DIR / "app.log",
         when="midnight",
@@ -72,7 +73,18 @@ def setup_logging() -> None:
     app_file.setFormatter(JsonFormatter())
     root.addHandler(app_file)
 
-    # 5. LLM 专用日志（仅 openai_adapter 模块，按天滚动，保留 14 天）
+    # 5. 错误日志文件（仅 ERROR 及以上，按天滚动，保留 30 天）
+    error_file = logging.handlers.TimedRotatingFileHandler(
+        filename=_LOG_DIR / "error.log",
+        when="midnight",
+        backupCount=30,
+        encoding="utf-8",
+    )
+    error_file.setLevel(logging.ERROR)
+    error_file.setFormatter(JsonFormatter())
+    root.addHandler(error_file)
+
+    # 6. LLM 专用日志（仅 openai_adapter 模块，按天滚动，保留 14 天）
     llm_file = logging.handlers.TimedRotatingFileHandler(
         filename=_LOG_DIR / "llm.log",
         when="midnight",
@@ -85,4 +97,8 @@ def setup_logging() -> None:
     llm_logger = logging.getLogger("app.core.llm.openai_adapter")
     llm_logger.handlers.clear()
     llm_logger.addHandler(llm_file)
-    llm_logger.propagate = True  # 仍向 root 传播，保证 app.log 也有 LLM 日志
+    llm_logger.propagate = True  # 仍向 root 传播，保证 app.log/error.log 也有 LLM 日志
+
+    # 7. 降低第三方库日志噪音
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
