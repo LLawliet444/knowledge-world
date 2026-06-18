@@ -99,9 +99,19 @@ export async function getQuestion(req: QuestionRequest): Promise<QuestionRespons
     depth: req.depth,
   };
 
+  // 后端 QuestionRequest 无 round 字段，精确构建请求体
+  const body = {
+    node_id: req.node_id,
+    node_name: req.node_name,
+    depth: req.depth,
+    mystery_question: req.mystery_question,
+    source_excerpt: req.source_excerpt,
+    mentor_prompts: req.mentor_prompts,
+  };
+
   const raw = await apiFetch<{ question: string; followups: string[] }>(
     `/api/v1/nodes/${req.node_id}/question`,
-    req,
+    body,
     fallback,
     8000,
   );
@@ -116,9 +126,19 @@ export async function getQuestion(req: QuestionRequest): Promise<QuestionRespons
 export async function getFeedback(req: FeedbackRequest): Promise<DiagnosticResponse> {
   const fallback = LOCAL_FEEDBACK_CARDS[req.depth];
 
+  // 后端 FeedbackRequest 无 feedback_level 字段
+  const body: Record<string, unknown> = {
+    node_id: req.node_id,
+    node_name: req.node_name,
+    depth: req.depth,
+    source_excerpt: req.source_excerpt,
+    user_answer: req.user_answer,
+    round: req.round,
+  };
+
   const raw = await apiFetch<BackendFeedbackResponse | DiagnosticResponse>(
     `/api/v1/nodes/${req.node_id}/feedback`,
-    req,
+    body,
     fallback,
     10000,
   );
