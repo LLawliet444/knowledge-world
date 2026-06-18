@@ -1,7 +1,11 @@
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+
+load_dotenv(".env", override=True)
 
 
 class Settings(BaseSettings):
+    openai_base_url: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     llm_temperature: float = 0.7
