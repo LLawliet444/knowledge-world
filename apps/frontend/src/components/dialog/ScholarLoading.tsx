@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface ScholarLoadingProps {
   animating?: boolean;
@@ -6,6 +6,7 @@ interface ScholarLoadingProps {
 }
 
 const SPRITESHEET = "/loading/explorer_drawing_8_frame_spritesheet.png";
+const CROP = { x: 122, y: 158, w: 778, h: 746 };
 
 const scholarLoadingKeyframes = `
 @keyframes scholar-cycle {
@@ -26,6 +27,22 @@ export const ScholarLoading: React.FC<ScholarLoadingProps> = ({
   animating = false,
   size = 120,
 }) => {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = CROP.w;
+      canvas.height = CROP.h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, CROP.x, CROP.y, CROP.w, CROP.h, 0, 0, CROP.w, CROP.h);
+      setDataUrl(canvas.toDataURL("image/png"));
+    };
+    img.src = SPRITESHEET;
+  }, []);
+
   return (
     <>
       <style>{scholarLoadingKeyframes}</style>
@@ -33,7 +50,7 @@ export const ScholarLoading: React.FC<ScholarLoadingProps> = ({
         style={{
           width: size,
           height: size,
-          backgroundImage: `url(${SPRITESHEET})`,
+          backgroundImage: dataUrl ? `url(${dataUrl})` : `url(${SPRITESHEET})`,
           backgroundSize: "300% 300%",
           backgroundPosition: "0% 0%",
           backgroundRepeat: "no-repeat",

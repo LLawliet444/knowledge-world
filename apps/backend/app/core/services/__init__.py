@@ -1,3 +1,1 @@
-from .question_engine import QuestionEngine
-from .feedback_engine import FeedbackEngine
-from .final_judge import FinalJudge
+from .socratic_engine import SocraticEngine

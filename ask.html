@@ -1,0 +1,48 @@
+<div class="workspace">
+    <!-- 顶部卷轴头 -->
+    <div class="scroll-top"></div>
+    
+    <div class="content-split">
+      <!-- 左侧：叙事对照区（视觉丰富） -->
+      <div class="sidebar">
+        <div class="npc-profile">
+          <div class="pixel-avatar mentor"></div>
+          <div class="status-badge">导师状态：引导中</div>
+        </div>
+        <div class="guide-box">
+          <p>理解进度：</p>
+          <div class="progress-bar"><span></span></div>
+          <p class="guide-text">"尝试关联认知革命的三个核心要素..."</p>
+        </div>
+      </div>
+  
+      <!-- 右侧：深度交互区（核心操作） -->
+      <div class="main-area">
+        <div class="interaction-card">
+          <textarea placeholder="在此记录你的因果链分析..." class="deep-textarea"></textarea>
+        </div>
+        <div class="action-dock">
+          <button class="nav-btn">← 回顾前文</button>
+          <button class="submit-btn">点亮逻辑碎片 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <style>
+    .workspace { width: 850px; margin: 30px auto; background: #f4e4bc; border: 3px solid #5d4037; padding: 20px; box-shadow: 10px 10px 0 rgba(93,64,55,0.1); }
+    .content-split { display: flex; gap: 20px; }
+    
+    /* 左侧栏：精致的装饰感 */
+    .sidebar { width: 200px; border-right: 2px dashed #8d6e63; padding-right: 15px; }
+    .mentor { width: 100px; height: 100px; margin: 0 auto 10px; border: 4px solid #5d4037; }
+    .progress-bar { width: 100%; height: 8px; background: #d7ccc8; margin: 10px 0; }
+    .progress-bar span { display: block; width: 60%; height: 100%; background: #5d4037; }
+  
+    /* 右侧：沉浸式输入 */
+    .main-area { flex: 1; display: flex; flex-direction: column; }
+    .deep-textarea { width: 100%; height: 300px; background: #fffaf0; border: 2px solid #a1887f; padding: 15px; font-size: 16px; outline: none; }
+    
+    .action-dock { display: flex; justify-content: space-between; margin-top: 20px; }
+    .submit-btn { background: #5d4037; color: #f4e4bc; padding: 10px 30px; font-weight: bold; border: none; cursor: pointer; }
+  </style>

@@ -1,1 +1,1 @@
-from .loader import load_question_prompts, load_feedback_prompts, load_final_question_prompts
+from .loader import load_system_prompt, load_runtime_template, load_judge_level_prompt

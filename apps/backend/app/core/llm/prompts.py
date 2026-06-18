@@ -1,14 +1,14 @@
 import re
 
 from app.core.prompts.loader import (
-    load_feedback_prompts,
-    load_final_question_prompts,
-    load_question_prompts,
+    load_judge_level_prompt,
+    load_runtime_template,
+    load_system_prompt,
 )
 
-_QUESTION_SYSTEM, _QUESTION_USER = load_question_prompts()
-_FEEDBACK_SYSTEM, _FEEDBACK_USER = load_feedback_prompts()
-_FINAL_SYSTEM, _FINAL_USER = load_final_question_prompts()
+_SYSTEM_PROMPT = load_system_prompt()
+_RUNTIME_TEMPLATE = load_runtime_template()
+_JUDGE_LEVEL_PROMPT = load_judge_level_prompt()
 
 
 def _render(template: str, **kwargs: str) -> str:
@@ -18,143 +18,92 @@ def _render(template: str, **kwargs: str) -> str:
     return re.sub(r"\{\{\s*(\w+)\s*\}\}", _replace, template)
 
 
-def build_question_system(depth: str) -> str:
-    return _render(_QUESTION_SYSTEM, depth=depth)
-
-
-def build_question_user(
+def build_interact_messages(
     node_name: str,
-    mystery_question: str,
-    source_excerpt: str,
-    mentor_prompt: str,
-) -> str:
-    return _render(
-        _QUESTION_USER,
-        node_name=node_name,
-        mystery_question=mystery_question,
-        source_excerpt=source_excerpt,
-        mentor_prompt=mentor_prompt,
-    )
-
-
-def build_question_messages(
-    node_name: str,
-    mystery_question: str,
-    source_excerpt: str,
-    mentor_prompt: str,
-    depth: str,
+    concept: str,
+    examples: str,
+    misconceptions: str,
+    learning_goals: str,
+    user_input: str,
+    level: int,
+    chat_history: str,
 ) -> list[dict[str, str]]:
-    return [
-        {"role": "system", "content": build_question_system(depth)},
-        {"role": "user", "content": build_question_user(
-            node_name=node_name,
-            mystery_question=mystery_question,
-            source_excerpt=source_excerpt,
-            mentor_prompt=mentor_prompt,
-        )},
-    ]
-
-
-_DEPTH_LABELS = {"how": "机制", "why": "因果", "system": "迁移"}
-
-
-def build_feedback_system() -> str:
-    return _FEEDBACK_SYSTEM
-
-
-def build_feedback_user(
-    node_name: str,
-    depth: str,
-    source_excerpt: str,
-    user_answer: str,
-    round: int,
-) -> str:
-    return _render(
-        _FEEDBACK_USER,
+    runtime = _render(
+        _RUNTIME_TEMPLATE,
+        system_prompt=_SYSTEM_PROMPT,
         node_name=node_name,
-        depth=depth,
-        depth_label=_DEPTH_LABELS.get(depth, "机制"),
-        source_excerpt=source_excerpt,
-        user_answer=user_answer,
-        round=str(round),
+        concept=concept,
+        examples=examples,
+        misconceptions=misconceptions,
+        learning_goals=learning_goals,
+        user_input=user_input,
+        level=str(level),
+        chat_history=chat_history,
     )
+    return [{"role": "user", "content": runtime}]
 
 
-def build_feedback_messages(
-    node_name: str,
-    depth: str,
-    source_excerpt: str,
-    user_answer: str,
-    round: int,
-) -> list[dict[str, str]]:
-    return [
-        {"role": "system", "content": build_feedback_system()},
-        {"role": "user", "content": build_feedback_user(
-            node_name=node_name,
-            depth=depth,
-            source_excerpt=source_excerpt,
-            user_answer=user_answer,
-            round=round,
-        )},
-    ]
-
-
-def build_final_question_system() -> str:
-    return _FINAL_SYSTEM
-
-
-def build_final_question_user(
-    node_name: str,
-    mystery_question: str,
-    source_excerpt: str,
-    user_answer: str,
-) -> str:
-    return _render(
-        _FINAL_USER,
-        node_name=node_name,
-        mystery_question=mystery_question,
-        source_excerpt=source_excerpt,
-        user_answer=user_answer,
+def build_judge_level_message(user_input: str) -> list[dict[str, str]]:
+    content = _render(
+        _JUDGE_LEVEL_PROMPT,
+        user_input=user_input,
     )
+    return [{"role": "user", "content": content}]
 
 
-def build_final_question_messages(
-    node_name: str,
-    mystery_question: str,
-    source_excerpt: str,
-    user_answer: str,
-) -> list[dict[str, str]]:
-    return [
-        {"role": "system", "content": build_final_question_system()},
-        {"role": "user", "content": build_final_question_user(
-            node_name=node_name,
-            mystery_question=mystery_question,
-            source_excerpt=source_excerpt,
-            user_answer=user_answer,
-        )},
-    ]
-
-
-FALLBACK_QUESTION = "关于这个概念——请你思考：它的核心机制是什么？如果缺少它，会有什么不同？"
-FALLBACK_FOLLOWUPS = [
-    "你能用生活中的例子来说明吗？",
-    "它与我们之前讨论过的概念有什么联系？",
+_DIMENSION_MAP = ["observe", "reason", "abstract"]
+_DIMENSION_FALLBACKS = [
+    "这个现象有哪些关键表现？",
+    "背后的因果关系是什么？",
+    "这揭示了什么深层规律？",
 ]
 
-FALLBACK_FEEDBACK_CARD = {
-    "understood": ["你已经开始思考这个问题了"],
-    "missing": ["尝试更具体地联系原文内容"],
-    "guidance": "试着用「因为...所以...」的句式来组织你的回答，这样能帮你理清逻辑链条。",
-    "next_question": "你能举一个反例来修正或挑战你的观点吗？",
-}
-FALLBACK_DEPTH_STATE = "learning"
-FALLBACK_COVERED_DIMENSIONS = ["concept"]
 
-FALLBACK_FINAL_PASSED = False
-FALLBACK_FINAL_COVERAGE = {
-    "concept_accurate": False,
-    "mechanism_complete": False,
-    "reason_explained": False,
-    "transfer_awareness": False,
-}
-FALLBACK_FINAL_RESPONSE = "这是一个很深的问题。试试从你学过的四个角度来重新思考它。"
+def parse_interact_response(response: str) -> dict:
+    result = {}
+    question_match = re.search(r"【问题】\s*\n(.+?)(?=\n【思考方向】|\n【提示】|$)", response, re.DOTALL)
+    result["question"] = question_match.group(1).strip() if question_match else "关于这个概念，你有什么理解？"
+
+    directions = []
+    direction_section = re.search(r"【思考方向】\s*\n(.+?)(?=\n【提示】|$)", response, re.DOTALL)
+    if direction_section:
+        lines = direction_section.group(1).strip().split("\n")
+        idx = 0
+        for line in lines:
+            line = line.strip()
+            if re.match(r"^\d+[.、]\s*", line):
+                text = re.sub(r"^\d+[.、]\s*", "", line).strip()
+                if idx < 3:
+                    directions.append({
+                        "dimension": _DIMENSION_MAP[idx],
+                        "text": text,
+                    })
+                    idx += 1
+    if not directions:
+        directions = [
+            {"dimension": d, "text": t}
+            for d, t in zip(_DIMENSION_MAP, _DIMENSION_FALLBACKS)
+        ]
+
+    result["directions"] = directions
+
+    hint_match = re.search(r"【提示】\s*\n(.+)", response, re.DOTALL)
+    result["hint"] = hint_match.group(1).strip() if hint_match else ""
+
+    return result
+
+
+def parse_judge_level_response(response: str) -> int:
+    match = re.search(r"[1234]", response.strip())
+    if match:
+        return int(match.group())
+    return 1
+
+
+FALLBACK_QUESTION = "关于这个概念，你有什么初步理解？"
+FALLBACK_DIRECTIONS = [
+    {"dimension": "observe", "text": "这个现象有哪些关键表现？"},
+    {"dimension": "reason", "text": "背后的因果关系是什么？"},
+    {"dimension": "abstract", "text": "这揭示了什么深层规律？"},
+]
+FALLBACK_LEVEL = 1
