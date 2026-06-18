@@ -17,3 +17,7 @@ def load_why_prompt() -> str:
 
 def load_system_layer_prompt() -> str:
     return _read("system_layer.md")
+
+
+def load_evaluation_prompt() -> str:
+    return _read("evaluation.md")
