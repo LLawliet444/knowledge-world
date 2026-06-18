@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useWorldStore } from "../../store/worldStore";
 import { getQuestion, getFeedback } from "../../api/nodes";
-import { ScholarLoading } from "./ScholarLoading";
 import { MentorAvatar } from "./MentorAvatar";
+import { ApprenticeAvatar } from "./ApprenticeAvatar";
 import { PixelButton } from "../common/PixelButton";
 import type { WorldNode, LayerType } from "../../types/world";
 import type { FeedbackCard } from "../../types/feedback";
@@ -271,23 +271,22 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
           flexDirection: isMentor ? "row" : "row-reverse",
         }}
       >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            backgroundColor: isMentor ? "#cf8442" : "#5d9c3f",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 16,
-            color: "#fff",
-            flexShrink: 0,
-            border: "2px solid #492310",
-          }}
-        >
-          {isMentor ? "🧙" : "🧑"}
-        </div>
+        {isMentor ? (
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              overflow: "hidden",
+              flexShrink: 0,
+              border: "2px solid #492310",
+            }}
+          >
+            <MentorAvatar variant="avatar" size={32} />
+          </div>
+        ) : (
+          <ApprenticeAvatar size={32} />
+        )}
         <div
           style={{
             maxWidth: "70%",
@@ -363,10 +362,40 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
               marginBottom: 12,
             }}
           >
-            <MentorAvatar variant="avatar" size={28} />
-            <ScholarLoading animating size={36} />
             <span style={{ fontSize: 13, color: "#492310" }}>
               {messages.length === 0 ? "老学者正在思考问题…" : "老学者正在思考你的回答…"}
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                gap: 4,
+                alignItems: "center",
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: "#492310",
+                  animation: "pulse 0.8s ease-in-out infinite",
+                }}
+              />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: "#492310",
+                  animation: "pulse 0.8s ease-in-out 0.15s infinite",
+                }}
+              />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: "#492310",
+                  animation: "pulse 0.8s ease-in-out 0.3s infinite",
+                }}
+              />
             </span>
           </div>
         )}
