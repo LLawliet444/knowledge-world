@@ -146,7 +146,7 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
 
     if not should_advance:
         state.layer_dialogue.append(
-            {"role": "ai", "content": teaching.content}
+            {"role": "ai", "content": teaching.full_text()}
         )
         logger.info(
             "answer_continue_layer",
@@ -196,7 +196,7 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
         previous_summary=state.previous_summary,
     )
     state.layer_dialogue.append(
-        {"role": "ai", "content": next_teaching.content}
+        {"role": "ai", "content": next_teaching.full_text()}
     )
 
     logger.info(

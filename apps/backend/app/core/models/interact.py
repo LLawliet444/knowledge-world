@@ -3,7 +3,25 @@ from pydantic import BaseModel, Field
 
 class TeachingContent(BaseModel):
     format: str
-    content: str
+    # how 层（guided_question）字段
+    opening: str | None = None
+    core_question: str | None = None
+    thinking_directions: list[str] | None = None
+    # why/system 层字段
+    content: str | None = None
+
+    def full_text(self) -> str:
+        """返回完整文本，用于对话历史记录与日志"""
+        if self.content:
+            return self.content
+        parts = []
+        if self.opening:
+            parts.append(self.opening)
+        if self.core_question:
+            parts.append(self.core_question)
+        if self.thinking_directions:
+            parts.append("思考方向：" + "；".join(self.thinking_directions))
+        return "\n".join(parts) if parts else ""
 
 
 class Evaluation(BaseModel):

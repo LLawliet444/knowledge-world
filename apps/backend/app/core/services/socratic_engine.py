@@ -12,6 +12,33 @@ from app.core.trace import get_trace_id
 
 logger = structlog.get_logger()
 
+# 各层默认 format，用于 fallback
+_LAYER_FORMAT = {
+    "how": "guided_question",
+    "why": "essence",
+    "system": "model",
+}
+
+
+def _build_teaching_content(tc: dict, layer: str) -> TeachingContent:
+    """从 LLM 返回的 teaching_content dict 构造 TeachingContent 对象"""
+    fmt = tc.get("format") or _LAYER_FORMAT.get(layer, "guided_question")
+    return TeachingContent(
+        format=fmt,
+        opening=tc.get("opening"),
+        core_question=tc.get("core_question"),
+        thinking_directions=tc.get("thinking_directions"),
+        content=tc.get("content"),
+    )
+
+
+def _fallback_teaching(layer: str) -> TeachingContent:
+    """LLM 异常时的兜底教学内容"""
+    return TeachingContent(
+        format=_LAYER_FORMAT.get(layer, "guided_question"),
+        content=FALLBACK_TEACHING_CONTENT,
+    )
+
 
 class SocraticEngine:
     def __init__(self, llm: LLMAdapter):
@@ -47,10 +74,7 @@ class SocraticEngine:
                 max_tokens=1536,
             )
             tc = raw.get("teaching_content", {})
-            result = TeachingContent(
-                format=tc.get("format", "mechanisms"),
-                content=tc.get("content", FALLBACK_TEACHING_CONTENT),
-            )
+            result = _build_teaching_content(tc, layer)
             logger.info(
                 "engine_first_question_done",
                 trace_id=trace_id,
@@ -58,7 +82,7 @@ class SocraticEngine:
                 node_id=node_id,
                 layer=layer,
                 format=result.format,
-                content_len=len(result.content),
+                content_len=len(result.full_text()),
             )
             return result
         except Exception as e:
@@ -70,10 +94,7 @@ class SocraticEngine:
                 layer=layer,
                 error=str(e),
             )
-            return TeachingContent(
-                format="mechanisms",
-                content=FALLBACK_TEACHING_CONTENT,
-            )
+            return _fallback_teaching(layer)
 
     async def interact_and_evaluate(
         self,
@@ -118,10 +139,7 @@ class SocraticEngine:
             )
 
             tc = raw.get("teaching_content", {})
-            teaching = TeachingContent(
-                format=tc.get("format", "mechanisms"),
-                content=tc.get("content", FALLBACK_TEACHING_CONTENT),
-            )
+            teaching = _build_teaching_content(tc, layer)
 
             ev = raw.get("evaluation")
             if ev is not None and ev.get("can_advance") is not None:
@@ -154,10 +172,7 @@ class SocraticEngine:
                 layer=layer,
                 error=str(e),
             )
-            return TeachingContent(
-                format="mechanisms",
-                content=FALLBACK_TEACHING_CONTENT,
-            ), None
+            return _fallback_teaching(layer), None
 
     async def evaluate_only(
         self,
