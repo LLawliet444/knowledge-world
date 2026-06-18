@@ -139,8 +139,11 @@ curl -X POST http://localhost:8000/api/v1/sessions
 | `layer_index` | int | 层索引，`0` = how |
 | `total_layers` | int | 总层数，固定 `3` |
 | `teaching_content` | object | 教学内容 |
-| `teaching_content.format` | string | 格式：`"mechanisms"` |
-| `teaching_content.content` | string | 教学内容文本，含机制路径和引导问题 |
+| `teaching_content.format` | string | 格式：`"guided_question"` |
+| `teaching_content.opening` | string | 开场引导语 |
+| `teaching_content.core_question` | string | 核心问题 |
+| `teaching_content.thinking_directions` | string[] | 3 个思考方向 |
+| `teaching_content.content` | null \| string | how 层为 null；why/system 层为文本 |
 | `evaluation` | null | 首次进入不评估，固定为 `null` |
 
 **请求示例**：
@@ -157,8 +160,15 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/nodes/n001/
   "layer_index": 0,
   "total_layers": 3,
   "teaching_content": {
-    "format": "mechanisms",
-    "content": "机制路径一：共同神话建立信任\n智人通过语言讲述虚构的故事，比如部落起源神话，让原本陌生的个体共同相信一个不存在的神灵或祖先。这种共同相信本身就是信任的种子。\n\n机制路径二：虚构规则替代血缘纽带\n当陌生人合作时，血缘无法提供信任基础。但一个共同承认的规则——比如「欺瞒神灵会遭报应」——可以充当看不见的契约。\n\n机制路径三：大规模协作的信息基础\n有了共同虚构的故事，信息能够在更大的网络中被共享和认同，使得成千上万的人可以围绕同一个目标行动。\n\n【引导问题】\n上面三种路径都强调「相信」的作用。你觉得，相信一个虚构的故事和相信一个真实存在的人，有什么区别？"
+    "format": "guided_question",
+    "opening": "欢迎来到这一层，我们将探讨智人如何通过虚构故事实现大规模协作。",
+    "core_question": "虚构故事是如何让陌生人之间产生信任的？",
+    "thinking_directions": [
+      "想象一个原始部落，他们通过共同的神话和传说来团结，你能描述这种团结如何产生信任吗？",
+      "现代社会中，法律和货币也是虚构故事——为什么陌生人会相信法律和货币的价值？",
+      "对比一下，如果一群陌生人没有共同的虚构故事，他们为什么很难合作？"
+    ],
+    "content": null
   },
   "evaluation": null
 }
@@ -199,9 +209,12 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/nodes/n001/
 | `can_advance` | bool | 是否通过了本层评估 |
 | `node_completed` | bool | 节点是否全部完成 |
 | `layer_summary` | string | can_advance=true 时，本层完成总结（≤60 字） |
-| `teaching_content` | object \| null | 下一轮教学内容（节点完成时为空） |
-| `teaching_content.format` | string | 格式：`"mechanisms"` / `"essence"` / `"model"` |
-| `teaching_content.content` | string | 教学内容文本 |
+| `teaching_content` | object \| null | 下一轮教学内容（节点完成时为 null） |
+| `teaching_content.format` | string | 格式：`"guided_question"` / `"essence"` / `"model"` |
+| `teaching_content.opening` | string \| null | how 层有值；why/system 层为 null |
+| `teaching_content.core_question` | string \| null | how 层有值；why/system 层为 null |
+| `teaching_content.thinking_directions` | string[] \| null | how 层有值；why/system 层为 null |
+| `teaching_content.content` | string \| null | why/system 层有值；how 层为 null |
 | `evaluation` | object \| null | 评估结果（轮次 < 3 时为 null） |
 | `evaluation.can_advance` | bool | 是否可以推进到下一层 |
 | `evaluation.reason` | string | 判断理由 |
@@ -215,7 +228,7 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
   -d '{"user_input": "人类更聪明所以胜出"}'
 ```
 
-**响应示例（can_advance=false，继续追问）**：
+**响应示例（how 层，can_advance=false，继续追问）**：
 
 ```json
 {
@@ -227,8 +240,15 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
   "node_completed": false,
   "layer_summary": "",
   "teaching_content": {
-    "format": "mechanisms",
-    "content": "如果仅仅是因为「更聪明」，那为什么黑猩猩、海豚、大象这些同样聪明的动物，没有像人类一样建立起城市、国家和文明？\n\n【引导问题】\n个体智力水平和群体协作能力之间，是否存在某种关键的差异？"
+    "format": "guided_question",
+    "opening": "「更聪明」是一个直觉判断，但我们需要更精确地分析。",
+    "core_question": "如果仅仅是因为更聪明，那为什么黑猩猩、海豚、大象这些同样聪明的动物，没有建立起城市和国家？",
+    "thinking_directions": [
+      "比较人类和这些聪明动物在群体规模上的差异",
+      "思考个体智力与群体协作能力之间的关系",
+      "想想除了智力之外，还有什么能力是人类独有的"
+    ],
+    "content": null
   },
   "evaluation": null
 }
@@ -300,11 +320,11 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
 
 ### 6.1 层定义
 
-| 层 | 认知目标 | System Prompt 结构 | 输出 format |
-|---|---|---|---|
-| **how** | 机制理解 | 给出 2-3 个机制路径 + 引导问题 | `"mechanisms"` |
-| **why** | 本质抽象 | 提炼 1-3 个跨场景规律 + 关键追问 | `"essence"` |
-| **system** | 体系建模 | 整合前三层为结构化模型 | `"model"` |
+| 层 | 认知目标 | System Prompt 结构 | 输出 format | 结构化字段 |
+|---|---|---|---|---|
+| **how** | 机制理解 | 苏格拉底式提问，引导用户推导机制 | `"guided_question"` | `opening` / `core_question` / `thinking_directions` |
+| **why** | 本质抽象 | 提炼 1-3 个跨场景规律 + 关键追问 | `"essence"` | `content` |
+| **system** | 体系建模 | 整合前三层为结构化模型 | `"model"` | `content` |
 
 ### 6.2 流转规则
 
@@ -338,14 +358,36 @@ system 层 prompt 注入前两层 summary
 
 ### 7.1 TeachingContent
 
+教学内容对象。不同层使用不同字段，`format` 决定哪些字段有值。
+
 ```typescript
 interface TeachingContent {
-  /** 内容格式：mechanisms | essence | model */
-  format: "mechanisms" | "essence" | "model";
-  /** 教学内容文本，含机制描述/规律提炼/认知模型 */
-  content: string;
+  /**
+   * 内容格式：
+   * - "guided_question" (how 层)：使用 opening / core_question / thinking_directions
+   * - "essence"         (why 层)：使用 content
+   * - "model"           (system 层)：使用 content
+   */
+  format: "guided_question" | "essence" | "model";
+
+  /** how 层：开场引导语；why/system 层：null */
+  opening: string | null;
+
+  /** how 层：核心问题；why/system 层：null */
+  core_question: string | null;
+
+  /** how 层：3 个思考方向；why/system 层：null */
+  thinking_directions: string[] | null;
+
+  /** why/system 层：教学内容文本；how 层：null */
+  content: string | null;
 }
 ```
+
+**前端渲染建议**：
+
+- `format === "guided_question"`：渲染为「开场语 + 核心问题 + 思考方向列表」
+- `format === "essence"` / `"model"`：直接渲染 `content` 文本（可按 `\n\n` 分段）
 
 ### 7.2 Evaluation
 
@@ -447,9 +489,13 @@ BASE = "http://localhost:8000"
 # 1. 创建会话
 sid = httpx.post(f"{BASE}/api/v1/sessions").json()["session_id"]
 
-# 2. 进入节点（认知革命）
+# 2. 进入节点（认知革命）— how 层返回结构化字段
 r = httpx.post(f"{BASE}/api/v1/sessions/{sid}/nodes/n001/enter")
-print(r.json()["teaching_content"]["content"])
+tc = r.json()["teaching_content"]
+print(tc["opening"])
+print(tc["core_question"])
+for d in tc["thinking_directions"]:
+    print(f"  - {d}")
 
 # 3. 三轮问答
 for i in range(3):
@@ -460,9 +506,17 @@ for i in range(3):
     )
     data = r.json()
     print(f"轮次 {data['current_round']} | 推进: {data['can_advance']}")
-    if data.get("teaching_content"):
-        print(data["teaching_content"]["content"])
+
+    tc = data.get("teaching_content")
+    if tc:
+        if tc["format"] == "guided_question":
+            # how 层：结构化字段
+            print(tc["core_question"])
+        else:
+            # why/system 层：content 文本
+            print(tc["content"])
+
     if data["node_completed"]:
-        print("🎉 节点完成！")
+        print("节点完成！")
         break
 ```
