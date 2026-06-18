@@ -60,6 +60,7 @@ class OpenAIAdapter(LLMAdapter):
             call_type="text",
             message_count=len(messages),
             input_chars=input_tokens,
+            messages=messages,
         )
 
         try:
@@ -82,7 +83,7 @@ class OpenAIAdapter(LLMAdapter):
                 call_type="text",
                 latency_ms=latency_ms,
                 output_chars=len(output),
-                output_preview=output[:100],
+                output=output,
             )
             return output
 
@@ -130,6 +131,7 @@ class OpenAIAdapter(LLMAdapter):
             call_type="json",
             message_count=len(messages),
             input_chars=input_chars,
+            messages=messages,
         )
 
         try:
@@ -154,7 +156,8 @@ class OpenAIAdapter(LLMAdapter):
                 call_type="json",
                 latency_ms=latency_ms,
                 output_chars=len(content),
-                output_preview=content[:120],
+                output=content,
+                output_parsed=parsed,
                 json_keys=list(parsed.keys()) if isinstance(parsed, dict) else None,
             )
             return parsed
