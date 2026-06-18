@@ -14,6 +14,8 @@ from app.core.models.interact import (
 from app.core.services.node_scope_loader import load_node_scope
 from app.core.services.session_manager import SessionManager
 from app.core.services.socratic_engine import SocraticEngine
+from app.core.trace import get_trace_id
+from app.core.trace_middleware import TraceMiddleware
 from app.logging_setup import setup_logging
 
 setup_logging()
@@ -35,6 +37,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(TraceMiddleware)
 
 
 @app.get("/api/v1/health")
@@ -59,6 +62,13 @@ async def create_session():
     description="前端完成 what 层后调用。后端加载 node scope，初始化状态机，返回 how 层第一轮。",
 )
 async def enter_node(session_id: str, node_id: str):
+    logger.info(
+        "request_enter_node",
+        trace_id=get_trace_id(),
+        session_id=session_id,
+        node_id=node_id,
+    )
+
     state = session_manager.get_session(session_id)
     if state is None:
         raise HTTPException(404, "Session not found")
@@ -73,6 +83,8 @@ async def enter_node(session_id: str, node_id: str):
     session_manager.enter_node(session_id, node_id)
 
     teaching = await socratic_engine.generate_first_question(
+        session_id=session_id,
+        node_id=node_id,
         layer="how",
         scope=scope,
         previous_summary="",
@@ -93,6 +105,14 @@ async def enter_node(session_id: str, node_id: str):
     description="每次用户回答后调用。后端合并教学+评估，自动推进状态机。",
 )
 async def answer(session_id: str, node_id: str, req: AnswerRequest):
+    logger.info(
+        "request_answer",
+        trace_id=get_trace_id(),
+        session_id=session_id,
+        node_id=node_id,
+        input_len=len(req.user_input),
+    )
+
     state = session_manager.get_session(session_id)
     if state is None:
         raise HTTPException(404, "Session not found")
@@ -111,22 +131,30 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
     previous_summary = state.previous_summary
 
     teaching, evaluation = await socratic_engine.interact_and_evaluate(
+        session_id=session_id,
+        node_id=node_id,
         layer=layer,
         scope=scope,
         user_input=req.user_input,
         round_num=round_num,
         dialogue_history=state.layer_dialogue[:-1],
         previous_summary=previous_summary,
-        can_evaluate=can_evaluate and evaluation is None,
+        can_evaluate=can_evaluate,
     )
 
-    should_advance = (
-        evaluation is not None and evaluation.can_advance
-    )
+    should_advance = evaluation is not None and evaluation.can_advance
 
     if not should_advance:
         state.layer_dialogue.append(
             {"role": "ai", "content": teaching.content}
+        )
+        logger.info(
+            "answer_continue_layer",
+            trace_id=get_trace_id(),
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            round=round_num,
         )
         return AnswerResponse(
             session_id=session_id,
@@ -143,6 +171,12 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
     session_manager.advance_layer(session_id, layer_summary)
 
     if state.node_completed:
+        logger.info(
+            "answer_node_completed",
+            trace_id=get_trace_id(),
+            session_id=session_id,
+            node_id=node_id,
+        )
         return AnswerResponse(
             session_id=session_id,
             node_id=node_id,
@@ -155,12 +189,22 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
         )
 
     next_teaching = await socratic_engine.generate_first_question(
+        session_id=session_id,
+        node_id=node_id,
         layer=state.current_layer,
         scope=scope,
         previous_summary=state.previous_summary,
     )
     state.layer_dialogue.append(
         {"role": "ai", "content": next_teaching.content}
+    )
+
+    logger.info(
+        "answer_advanced_layer",
+        trace_id=get_trace_id(),
+        session_id=session_id,
+        node_id=node_id,
+        new_layer=state.current_layer,
     )
 
     return AnswerResponse(

@@ -8,6 +8,7 @@ from app.core.llm.prompts import (
     build_layer_first_messages,
 )
 from app.core.models.interact import TeachingContent, Evaluation
+from app.core.trace import get_trace_id
 
 logger = structlog.get_logger()
 
@@ -18,10 +19,20 @@ class SocraticEngine:
 
     async def generate_first_question(
         self,
+        session_id: str,
+        node_id: str,
         layer: str,
         scope: dict,
         previous_summary: str,
     ) -> TeachingContent:
+        trace_id = get_trace_id()
+        logger.info(
+            "engine_first_question_start",
+            trace_id=trace_id,
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+        )
         messages = build_layer_first_messages(
             layer=layer,
             scope_summary="\n".join(scope.get("scope", [])),
@@ -36,12 +47,29 @@ class SocraticEngine:
                 max_tokens=1536,
             )
             tc = raw.get("teaching_content", {})
-            return TeachingContent(
+            result = TeachingContent(
                 format=tc.get("format", "mechanisms"),
                 content=tc.get("content", FALLBACK_TEACHING_CONTENT),
             )
+            logger.info(
+                "engine_first_question_done",
+                trace_id=trace_id,
+                session_id=session_id,
+                node_id=node_id,
+                layer=layer,
+                format=result.format,
+                content_len=len(result.content),
+            )
+            return result
         except Exception as e:
-            logger.error("first_question_failed", layer=layer, error=str(e))
+            logger.error(
+                "engine_first_question_failed",
+                trace_id=trace_id,
+                session_id=session_id,
+                node_id=node_id,
+                layer=layer,
+                error=str(e),
+            )
             return TeachingContent(
                 format="mechanisms",
                 content=FALLBACK_TEACHING_CONTENT,
@@ -49,6 +77,8 @@ class SocraticEngine:
 
     async def interact_and_evaluate(
         self,
+        session_id: str,
+        node_id: str,
         layer: str,
         scope: dict,
         user_input: str,
@@ -57,6 +87,17 @@ class SocraticEngine:
         previous_summary: str,
         can_evaluate: bool,
     ) -> tuple[TeachingContent, Evaluation | None]:
+        trace_id = get_trace_id()
+        logger.info(
+            "engine_interact_start",
+            trace_id=trace_id,
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            round=round_num,
+            can_evaluate=can_evaluate,
+            input_len=len(user_input),
+        )
         messages = build_merged_messages(
             layer=layer,
             scope_summary="\n".join(scope.get("scope", [])),
@@ -92,10 +133,27 @@ class SocraticEngine:
             else:
                 evaluation = None
 
+            logger.info(
+                "engine_interact_done",
+                trace_id=trace_id,
+                session_id=session_id,
+                node_id=node_id,
+                layer=layer,
+                round=round_num,
+                has_evaluation=evaluation is not None,
+                can_advance=evaluation.can_advance if evaluation else None,
+            )
             return teaching, evaluation
 
         except Exception as e:
-            logger.error("interact_and_evaluate_failed", layer=layer, error=str(e))
+            logger.error(
+                "engine_interact_failed",
+                trace_id=trace_id,
+                session_id=session_id,
+                node_id=node_id,
+                layer=layer,
+                error=str(e),
+            )
             return TeachingContent(
                 format="mechanisms",
                 content=FALLBACK_TEACHING_CONTENT,
@@ -103,6 +161,8 @@ class SocraticEngine:
 
     async def evaluate_only(
         self,
+        session_id: str,
+        node_id: str,
         layer: str,
         scope: dict,
         user_input: str,
@@ -111,6 +171,8 @@ class SocraticEngine:
         previous_summary: str,
     ) -> Evaluation | None:
         _, evaluation = await self.interact_and_evaluate(
+            session_id=session_id,
+            node_id=node_id,
             layer=layer,
             scope=scope,
             user_input=user_input,

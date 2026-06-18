@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from typing import Any
 
 import structlog
@@ -8,6 +9,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import settings
 from app.core.llm.adapter import LLMAdapter
+from app.core.trace import get_trace_id
 
 logger = structlog.get_logger()
 
@@ -47,6 +49,19 @@ class OpenAIAdapter(LLMAdapter):
         temperature: float = 0.7,
         max_tokens: int = 1024,
     ) -> str:
+        trace_id = get_trace_id()
+        start = time.perf_counter()
+        input_tokens = sum(len(m["content"]) for m in messages)
+
+        logger.info(
+            "llm_call_start",
+            trace_id=trace_id,
+            model=self.model,
+            call_type="text",
+            message_count=len(messages),
+            input_chars=input_tokens,
+        )
+
         try:
             response = await asyncio.wait_for(
                 self.client.chat.completions.create(
@@ -57,10 +72,42 @@ class OpenAIAdapter(LLMAdapter):
                 ),
                 timeout=settings.llm_timeout_seconds,
             )
-            return response.choices[0].message.content or ""
+            output = response.choices[0].message.content or ""
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+
+            logger.info(
+                "llm_call_complete",
+                trace_id=trace_id,
+                model=self.model,
+                call_type="text",
+                latency_ms=latency_ms,
+                output_chars=len(output),
+                output_preview=output[:100],
+            )
+            return output
+
         except asyncio.TimeoutError:
-            logger.warning("llm_timeout", model=self.model)
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            logger.warning(
+                "llm_call_timeout",
+                trace_id=trace_id,
+                model=self.model,
+                call_type="text",
+                latency_ms=latency_ms,
+            )
             raise TimeoutError("LLM call timed out")
+        except Exception as e:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            logger.error(
+                "llm_call_error",
+                trace_id=trace_id,
+                model=self.model,
+                call_type="text",
+                latency_ms=latency_ms,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
 
     @retry(
         stop=stop_after_attempt(settings.llm_retry_times + 1),
@@ -72,6 +119,19 @@ class OpenAIAdapter(LLMAdapter):
         temperature: float = 0.7,
         max_tokens: int = 2048,
     ) -> dict[str, Any]:
+        trace_id = get_trace_id()
+        start = time.perf_counter()
+        input_chars = sum(len(m["content"]) for m in messages)
+
+        logger.info(
+            "llm_call_start",
+            trace_id=trace_id,
+            model=self.model,
+            call_type="json",
+            message_count=len(messages),
+            input_chars=input_chars,
+        )
+
         try:
             response = await asyncio.wait_for(
                 self.client.chat.completions.create(
@@ -84,7 +144,52 @@ class OpenAIAdapter(LLMAdapter):
                 timeout=settings.llm_timeout_seconds,
             )
             content = response.choices[0].message.content or "{}"
-            return json.loads(content)
-        except (asyncio.TimeoutError, json.JSONDecodeError) as e:
-            logger.warning("llm_json_failed", model=self.model, error=str(e))
+            parsed = json.loads(content)
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+
+            logger.info(
+                "llm_call_complete",
+                trace_id=trace_id,
+                model=self.model,
+                call_type="json",
+                latency_ms=latency_ms,
+                output_chars=len(content),
+                output_preview=content[:120],
+                json_keys=list(parsed.keys()) if isinstance(parsed, dict) else None,
+            )
+            return parsed
+
+        except asyncio.TimeoutError:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            logger.warning(
+                "llm_call_timeout",
+                trace_id=trace_id,
+                model=self.model,
+                call_type="json",
+                latency_ms=latency_ms,
+            )
+            raise TimeoutError("LLM call timed out")
+        except json.JSONDecodeError as e:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            logger.error(
+                "llm_json_parse_error",
+                trace_id=trace_id,
+                model=self.model,
+                call_type="json",
+                latency_ms=latency_ms,
+                error=str(e),
+                raw_output=content[:200] if 'content' in locals() else None,
+            )
+            raise
+        except Exception as e:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            logger.error(
+                "llm_call_error",
+                trace_id=trace_id,
+                model=self.model,
+                call_type="json",
+                latency_ms=latency_ms,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
             raise
