@@ -18,6 +18,7 @@ export const economicsWorld: World = {
       id: "n_scarcity",
       name: "稀缺性",
       icon: "/nodes/node_gear.png",
+      iconNpc: "/scenes/cave_fire/gate_npc_2.png",
       mysteryQuestion: "为什么永远没有足够？",
       gateNpc: {
         id: "gate_scarcity",
@@ -63,6 +64,7 @@ export const economicsWorld: World = {
       id: "n_choice",
       name: "选择与权衡",
       icon: "/nodes/node_scale.png",
+      iconNpc: "/scenes/stone_law/gate_npc.png",
       mysteryQuestion: "每一个选择放弃了什么？",
       gateNpc: {
         id: "gate_choice",
@@ -108,6 +110,7 @@ export const economicsWorld: World = {
       id: "n_supply_demand",
       name: "供给与需求",
       icon: "/nodes/node_coin.png",
+      iconNpc: "/scenes/market_trade/gate_npc.png",
       mysteryQuestion: "价格到底是谁决定的？",
       gateNpc: {
         id: "gate_market",
@@ -153,6 +156,7 @@ export const economicsWorld: World = {
       id: "n_market_fail",
       name: "市场失灵",
       icon: "/nodes/node_tribe.png",
+      iconNpc: "/scenes/grain_field/gate_npc.png",
       mysteryQuestion: "为什么市场有时也会失灵？",
       gateNpc: {
         id: "gate_market_fail",
@@ -198,6 +202,7 @@ export const economicsWorld: World = {
       id: "n_pub_goods",
       name: "公共物品",
       icon: "/nodes/node_village.png",
+      iconNpc: "/scenes/stargazing/gate_npc.png",
       mysteryQuestion: "谁为路灯付钱？",
       gateNpc: {
         id: "gate_pub",

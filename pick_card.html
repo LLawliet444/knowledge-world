@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<style>
+    body { background: #1a1a1d; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    
+    .scroll-wrapper {
+        position: relative; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    /* 卷轴主体 */
+    .scroll-body {
+        width: 0; /* 初始宽度为0 */
+        height: 160px;
+        background: #d6cfb8; /* 羊皮纸色 */
+        border-left: 4px solid #5e564a;
+        border-right: 4px solid #5e564a;
+        transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+        color: #3e3529;
+        font-family: 'Courier New', serif;
+        white-space: nowrap;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    }
+
+    /* 展开后的类 */
+    .scroll-body.open { width: 240px; }
+
+    /* 卷轴头 (木质手柄) */
+    .handle { width: 10px; height: 180px; background: #5e564a; margin: 0 -5px; z-index: 2; }
+
+    .content { opacity: 0; transition: opacity 0.5s 0.5s; font-weight: bold; }
+    .open .content { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="scroll-wrapper" onclick="this.querySelector('.scroll-body').classList.toggle('open')">
+    <div class="handle"></div>
+    <div class="scroll-body">
+        <div class="content">认知碎片：人类简史</div>
+    </div>
+    <div class="handle"></div>
+</div>
+
+</body>
+</html>

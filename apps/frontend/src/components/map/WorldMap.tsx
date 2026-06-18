@@ -9,8 +9,8 @@ import gsap from "gsap";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useDialogStore } from "../../store/dialogStore";
-import { useUiStore } from "../../store/uiStore";
 import { useWorldStore } from "../../store/worldStore";
+import { useBgmStore } from "../../store/bgmStore";
 import { getVisibleNodes } from "../../utils/depthGate";
 import { preloadPixiTextures } from "../../utils/preloadTextures";
 
@@ -18,9 +18,11 @@ import { DepthBackground } from "./DepthBackground";
 import { FogLayer } from "./FogLayer";
 import NodeSprite from "./NodeSprite";
 import ScholarSprite from "./ScholarSprite";
-import { SmallScene } from "./SmallScene";
 
-import type { WorldNode } from "../../types/world";
+import ScenePlayer, { NODE_SCENE_MAP } from "../scene/ScenePlayer";
+import IntroGuide from "../scene/IntroGuide";
+
+import type { WorldNode, DialogueLine, WhatScroll } from "../../types/world";
 
 const MAP_WIDTH = 1920;
 const MAP_HEIGHT = 1080;
@@ -40,18 +42,18 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   } = useWorldStore();
 
   const { open } = useDialogStore();
-  const {
-    isPlayingScene,
-    activeSceneKey,
-    sceneCloseCallback,
-    endScene,
-  } = useUiStore();
 
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [isWalking, setIsWalking] = useState(false);
   const [scholarDir, setScholarDir] = useState<"idle" | "left" | "right" | "up" | "down">("idle");
   const [revealingPos, setRevealingPos] = useState<{ x: number; y: number } | null>(null);
   const [activeNode, setActiveNode] = useState<WorldNode | null>(null);
+  const [activeSceneIndex, setActiveSceneIndex] = useState<number | null>(null);
+  const [introGuideData, setIntroGuideData] = useState<{
+    dialogue: DialogueLine[];
+    scrolls: WhatScroll[];
+    wrapUp: DialogueLine[];
+  } | null>(null);
 
   // —— cover 模式：等比缩放铺满整个窗口 ——
   const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -71,7 +73,7 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   useEffect(() => {
     if (!world) return;
     const avatarPaths = world.nodes.map((n) => n.gateNpc.avatar);
-    const iconPaths = world.nodes.map((n) => n.icon);
+    const iconPaths = world.nodes.flatMap((n) => [n.icon, n.iconNpc]);
     const sceneKeys = world.nodes
       .map((n) => n.introScene.visualHint)
       .filter(Boolean);
@@ -87,6 +89,12 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     moveScholar(world.scholarStart.x, world.scholarStart.y);
     setCurrentNodeId(world.startNodeId);
   }, [world?.worldId]);
+
+  // —— BGM：当前深度变化时播放对应曲目 ——
+  useEffect(() => {
+    if (!world) return;
+    useBgmStore.getState().playFor(currentDepth);
+  }, [currentDepth, world?.worldId]);
 
   const visibleIds = world
     ? getVisibleNodes(currentDepth, world, nodeProgress)
@@ -156,14 +164,10 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
           const shouldPlayScene =
             currentDepth === "what" &&
             progress?.introScene === "unseen" &&
-            !!node.introScene.visualHint;
+            !!NODE_SCENE_MAP[node.id];
 
           if (shouldPlayScene) {
-            useUiStore.getState().playScene(node.introScene.visualHint, () => {
-              useWorldStore.getState().markIntroSceneSeen(node.id);
-              open(node, currentDepth);
-              onNodeClick?.(node);
-            });
+            setActiveSceneIndex(NODE_SCENE_MAP[node.id]);
           } else {
             open(node, currentDepth);
             onNodeClick?.(node);
@@ -182,9 +186,40 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   );
 
   const handleSceneComplete = useCallback(() => {
-    endScene();
-    sceneCloseCallback?.();
-  }, [endScene, sceneCloseCallback]);
+    if (!activeNode) return;
+    useWorldStore.getState().markIntroSceneSeen(activeNode.id);
+
+    const prompts = activeNode.mentorPrompts;
+    const hasScrolls = prompts?.whatScrolls && prompts.whatScrolls.length > 0;
+    if (hasScrolls) {
+      setIntroGuideData({
+        dialogue: prompts.whatDialogue ?? [],
+        scrolls: prompts.whatScrolls!,
+        wrapUp: prompts.whatWrapUp ?? [],
+      });
+    } else {
+      // 向后兼容：无卷轴数据则直接开对话框
+      open(activeNode, currentDepth);
+      onNodeClick?.(activeNode);
+    }
+    setActiveSceneIndex(null);
+  }, [activeNode, currentDepth, open, onNodeClick]);
+
+  const handleIntroGuideComplete = useCallback(
+    (_choice: "definition" | "example" | "bridge") => {
+      if (!activeNode) return;
+      setIntroGuideData(null);
+      useWorldStore.getState().updateNodeDepthState(activeNode.id, "what", "completed");
+    },
+    [activeNode],
+  );
+
+  const handleIntroGuideSkip = useCallback(() => {
+    if (!activeNode) return;
+    setIntroGuideData(null);
+    open(activeNode, currentDepth);
+    onNodeClick?.(activeNode);
+  }, [activeNode, currentDepth, open, onNodeClick]);
 
   // 计算路径链（按 nextDiscoveryId 把节点串起来）
   const pathChain = useMemo(() => {
@@ -218,19 +253,15 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
       const b = pathChain[i + 1];
       if (!a || !b) continue;
 
-      // 在两点之间加一个小"拐点"，让路径像曲线路径，避免看起来全是直线
-      // 取中点 + 轻微垂直偏移
       const midX = (a.position.x + b.position.x) / 2;
       const midY = (a.position.y + b.position.y) / 2;
       const dx = b.position.x - a.position.x;
       const dy = b.position.y - a.position.y;
-      // 垂直方向（与 dx,dy 成 90°）的小偏移
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
       const offset = (i % 2 === 0 ? 1 : -1) * Math.min(80, len * 0.15);
       const bendX = midX + (-dy / len) * offset;
       const bendY = midY + (dx / len) * offset;
 
-      // 判断这段路径是否已"解锁"（前一个节点的某个状态）
       const progress = nodeProgress[a.id];
       const depthState = progress?.[currentDepth] ?? "locked";
       const revealed = depthState !== "locked";
@@ -285,12 +316,10 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
                     color: seg.revealed ? 0x8b5a2b : 0x6b4f3a,
                     alpha: seg.revealed ? 0.55 : 0.25,
                   });
-                  // 画主路径
                   g.moveTo(seg.x1, seg.y1);
                   g.lineTo(seg.x2, seg.y2);
                 }
 
-                // 在路径上画像素"小脚印"节点间
                 for (const seg of pathSegments) {
                   if (!seg.revealed) continue;
                   const steps = 4;
@@ -317,6 +346,8 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
                   state={depthState}
                   isCurrent={node.id === currentNodeId}
                   nodeClear={progress?.nodeClear ?? false}
+                  finalQuestion={progress?.finalQuestion ?? "locked"}
+                  scholarPos={scholarPos}
                   onClick={handleNodeClick}
                 />
               );
@@ -353,13 +384,22 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
       </div>
     </div>
 
-    {/* 第一幕过场动画（DOM 层，完全覆盖在地图之上） */}
-    {isPlayingScene && activeSceneKey && activeNode && (
-      <SmallScene
-        sceneKey={activeSceneKey}
-        sceneText={activeNode.introScene.sceneText}
-        durationSec={activeNode.introScene.durationSec}
+    {/* 过场动画播放器 */}
+    {activeSceneIndex !== null && activeNode && (
+      <ScenePlayer
+        sceneIndex={activeSceneIndex}
         onComplete={handleSceneComplete}
+      />
+    )}
+
+    {/* 引导对话 + 卷轴 + 收尾 */}
+    {introGuideData && activeNode && (
+      <IntroGuide
+        dialogue={introGuideData.dialogue}
+        scrolls={introGuideData.scrolls}
+        wrapUp={introGuideData.wrapUp}
+        onComplete={handleIntroGuideComplete}
+        onSkip={handleIntroGuideSkip}
       />
     )}
     </>

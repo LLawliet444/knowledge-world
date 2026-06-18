@@ -42,8 +42,23 @@ export interface WhatCard {
 
 // ── 老学者引导文案 ────────────────────────────────────────────────────────
 
+export interface DialogueLine {
+  speaker: "scholar" | "mentor";
+  text: string;
+}
+
+export interface WhatScroll {
+  type: "definition" | "example" | "bridge";
+  title: string;
+  content: string;
+  mentorVoice: string;
+}
+
 export interface MentorPrompts {
   whatIntro: string;
+  whatDialogue?: DialogueLine[];
+  whatScrolls?: WhatScroll[];
+  whatWrapUp?: DialogueLine[];
   how: string;
   why: string;
   system: string;
@@ -62,7 +77,8 @@ export interface FinalQuestion {
 export interface WorldNode {
   id: string;
   name: string;           // 节点内部名称（如"认知革命"），地图上不直接显示
-  icon: string;           // 节点图标（如 "/nodes/node_cave_painting.png"），代替 NPC 头像显示在地图上
+  icon: string;           // 节点图标（如 "/nodes/node_cave_painting.png"），完成最终回答后显示
+  iconNpc: string;        // 节点 NPC 图标（如 "/scenes/cave_fire/gate_npc.png"），最终回答前显示
   mysteryQuestion: string; // 地图上代替节点名显示的一句谜题文案
   gateNpc: GateNpc;       // 关卡 NPC 信息（对话框内继续使用）
   position: { x: number; y: number }; // 节点在地图上的像素坐标（四张地图共用）

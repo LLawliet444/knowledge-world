@@ -5,6 +5,7 @@
 import React, { useCallback } from "react";
 import { useWorldStore } from "../../store/worldStore";
 import { useDialogStore } from "../../store/dialogStore";
+import { useBgmStore } from "../../store/bgmStore";
 import { getDepthGateStatus } from "../../utils/depthGate";
 import { LAYER_ORDER } from "../../constants/biome";
 import type { LayerType } from "../../types/world";
@@ -26,6 +27,7 @@ const DEPTH_LABELS: Record<LayerType, string> = {
 export const HUD: React.FC = () => {
   const { world, currentDepth, fogPercentage, switchDepth, nodeProgress } = useWorldStore();
   const { close } = useDialogStore();
+  const { isPlaying, pause, resume } = useBgmStore();
 
   const handleSwitch = useCallback(
     (depth: LayerType) => {
@@ -109,6 +111,15 @@ export const HUD: React.FC = () => {
           })()}
           className="flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] disabled:bg-[#e8d5f7] disabled:text-[#3a1f0a]/40 disabled:cursor-not-allowed disabled:hover:shadow-[2px_2px_0_0_#1a1226] disabled:hover:translate-x-0 disabled:hover:translate-y-0 active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]">
           <span className="font-pixel text-sm">▼</span>
+        </button>
+
+        {/* BGM 开关 */}
+        <button
+          onClick={() => (isPlaying ? pause() : resume())}
+          className="mt-2 flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]"
+          title={isPlaying ? "关闭 BGM" : "播放 BGM"}
+        >
+          <span className="font-pixel text-base">{isPlaying ? "🔊" : "🔇"}</span>
         </button>
       </div>
     </>

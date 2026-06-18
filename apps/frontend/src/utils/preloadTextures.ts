@@ -37,6 +37,10 @@ export function preloadPixiTextures(
   // NPC 头像
   for (const p of avatarPaths) paths.add(p);
 
+  // 引导对话头像
+  paths.add("/characters/scholar_stand.png");
+  paths.add("/characters/mentor_old_scholar.png");
+
   // 节点章节图标（地图上显示的主 icon）
   for (const p of iconPaths) paths.add(p);
 

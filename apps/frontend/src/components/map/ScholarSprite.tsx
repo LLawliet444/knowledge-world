@@ -1,10 +1,9 @@
 /**
  * 学者化身（主角） - PixiJS v7 + @pixi/react
  *
- * 使用与 NodeSprite 一致的渲染模式：
- *   - 通过 PIXI.Texture.from(path) 将精灵图加载到 PIXI.utils.TextureCache
- *   - 从缓存获取纹理后，条件渲染 <Sprite>
- *   - 通过 state 切换 frame，实现 4 帧走路动画
+ * 所有精灵图均为水平排列（1 行 4 列）。
+ * 每帧宽 = 图片宽 / 4，帧高 = 图片高。
+ * 根据实际纹理尺寸动态计算裁剪区域和缩放比例。
  */
 
 import { Container, Graphics, Sprite } from "@pixi/react";
@@ -19,20 +18,15 @@ interface ScholarSpriteProps {
 }
 
 const SPRITE_PATHS: Record<ScholarSpriteProps["direction"], string> = {
-  idle: "/characters/scholar_apprentice_sprite_walk_right_4f_clean.png",
+  idle: "/characters/scholar_stand.png",
   left: "/characters/scholar_apprentice_sprite_walk_left_4f_clean.png",
-  right: "/characters/scholar_apprentice_sprite_walk_right_4f_clean.png",
+  right: "/characters/scholar_uploaded_walk_right_4f_sheet.png",
   up: "/characters/scholar_apprentice_sprite_walk_up_4f_clean.png",
   down: "/characters/scholar_apprentice_sprite_walk_down_4f_clean.png",
 };
 
-// 精灵图：1024x1024，2x2 网格，每帧 512x512
-const FRAME_W = 512;
-const FRAME_H = 512;
-// 显示尺寸：在 1920x1080 的地图上约 850 像素宽，保证非常显眼
-// 精灵图中角色实际占 200-250 像素 / 512 帧 = ~45%，所以 850 * 0.45 ≈ 380 像素高
-const DISPLAY_W = 150;
-const SCALE = DISPLAY_W / FRAME_W; // ~1.66
+// 目标高度（px），宽度按比例自适应
+const DISPLAY_H = 160;
 
 export const ScholarSprite: React.FC<ScholarSpriteProps> = ({
   x,
@@ -41,7 +35,6 @@ export const ScholarSprite: React.FC<ScholarSpriteProps> = ({
   isWalking,
 }) => {
   const [frameIndex, setFrameIndex] = useState(0);
-  // tick 用于在纹理加载完成后强制触发重新渲染
   const [, setTick] = useState(0);
 
   // 1) 把精灵图加入 PIXI 纹理缓存，并等待加载完成
@@ -77,27 +70,32 @@ export const ScholarSprite: React.FC<ScholarSpriteProps> = ({
     return () => window.clearInterval(id);
   }, [isWalking]);
 
-  // 3) 切出当前帧的纹理
+  // 3) 从实际纹理动态计算帧大小和缩放
   const path = SPRITE_PATHS[direction];
   const cached = PIXI.utils.TextureCache[path];
+
+  const spriteW = cached?.baseTexture?.valid ? cached.baseTexture.width : 192;
+  const spriteH = cached?.baseTexture?.valid ? cached.baseTexture.height : 48;
+
+  const isIdle = direction === "idle";
+  const frameW = isIdle ? spriteW : spriteW / 4;
+  const frameH = spriteH;
+  const scale = DISPLAY_H / frameH;
+
   let frameTexture: PIXI.Texture | null = null;
   if (cached && cached.baseTexture && cached.baseTexture.valid) {
-    // 根据 frameIndex 计算 frame 位置（2x2 网格）
-    const fx = (frameIndex % 2) * FRAME_W;
-    const fy = Math.floor(frameIndex / 2) * FRAME_H;
+    const fx = isIdle ? 0 : frameIndex * frameW;
     frameTexture = new PIXI.Texture(
       cached.baseTexture,
-      new PIXI.Rectangle(fx, fy, FRAME_W, FRAME_H),
+      new PIXI.Rectangle(fx, 0, frameW, frameH),
     );
   }
 
-  // 阴影和光晕的几何参数
-  // anchor.y=0.78：锚点对齐精灵图中角色的脚底位置
-  // 阴影紧贴脚底下方，避免漂浮感
-  const shadowY = DISPLAY_W * 0.21;
-  const shadowW = DISPLAY_W * 0.3;
-  const shadowH = DISPLAY_W * 0.05;
-  const haloR = DISPLAY_W * 0.55;
+  const displayW = frameW * scale;
+  const shadowY = displayW * 0.21;
+  const shadowW = displayW * 0.3;
+  const shadowH = displayW * 0.05;
+  const haloR = displayW * 0.55;
 
   return (
     <Container x={x} y={y}>
@@ -119,12 +117,12 @@ export const ScholarSprite: React.FC<ScholarSpriteProps> = ({
           g.endFill();
         }}
       />
-      {/* 主角精灵 - 条件渲染，确保纹理就绪 */}
+      {/* 主角精灵 */}
       {frameTexture && (
         <Sprite
           texture={frameTexture}
           anchor={{ x: 0.5, y: 0.78 }}
-          scale={{ x: SCALE, y: SCALE }}
+          scale={{ x: scale, y: scale }}
         />
       )}
       {/* 纹理未加载时显示红色圆圈（调试占位） */}
