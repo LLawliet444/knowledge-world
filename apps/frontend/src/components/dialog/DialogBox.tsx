@@ -151,6 +151,12 @@ export const DialogBox: React.FC = () => {
       if (!currentNode) return;
       updateNodeDepthState(currentNode.id, "what", "completed");
       close();
+      // 兜底路径：无卷轴数据时，完成 What 后自动切换到理解层
+      const store = useWorldStore.getState();
+      if (store.world) {
+        store.updateNodeDepthState(currentNode.id, "how", "available");
+        store.switchDepth("how");
+      }
     },
     [currentNode, updateNodeDepthState, close],
   );

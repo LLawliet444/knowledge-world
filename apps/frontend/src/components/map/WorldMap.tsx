@@ -211,11 +211,15 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
 
   const handleIntroGuideComplete = useCallback(
     (_choice: "definition" | "example" | "bridge") => {
-      if (!activeNode) return;
+      if (!activeNode || !world) return;
       setIntroGuideData(null);
-      useWorldStore.getState().updateNodeDepthState(activeNode.id, "what", "completed");
+      const store = useWorldStore.getState();
+      store.updateNodeDepthState(activeNode.id, "what", "completed");
+      // 解锁当前节点在理解层的迷雾，并自动切换到理解层
+      store.updateNodeDepthState(activeNode.id, "how", "available");
+      switchDepth("how");
     },
-    [activeNode],
+    [activeNode, world, switchDepth],
   );
 
   const handleIntroGuideSkip = useCallback(() => {
