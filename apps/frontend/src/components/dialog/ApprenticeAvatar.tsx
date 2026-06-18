@@ -32,16 +32,20 @@ export const ApprenticeAvatar: React.FC<ApprenticeAvatarProps> = ({
     img.src = SPRITESHEET;
   }, []);
 
+  const outerSize = size + 16;
+
   return (
     <div
       style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: outerSize,
+        height: outerSize,
+        backgroundColor: "#fff7e6",
+        border: "4px solid #b56c27",
+        boxShadow: "0 0 0 4px #eeb069",
         flexShrink: 0,
-        border: "2px solid #492310",
-        backgroundColor: "transparent",
       }}
     >
       {dataUrl && (
@@ -50,9 +54,8 @@ export const ApprenticeAvatar: React.FC<ApprenticeAvatarProps> = ({
           alt="学徒"
           draggable={false}
           style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
+            width: size,
+            height: size,
             imageRendering: "pixelated",
           }}
         />

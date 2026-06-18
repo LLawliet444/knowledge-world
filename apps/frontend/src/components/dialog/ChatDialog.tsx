@@ -267,29 +267,18 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
           display: "flex",
           gap: 8,
           marginBottom: 12,
-          alignItems: "flex-start",
+          alignItems: "flex-end",
           flexDirection: isMentor ? "row" : "row-reverse",
         }}
       >
         {isMentor ? (
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "50%",
-              overflow: "hidden",
-              flexShrink: 0,
-              border: "2px solid #492310",
-            }}
-          >
-            <MentorAvatar variant="avatar" size={32} />
-          </div>
+          <MentorAvatar variant="avatar" size={32} />
         ) : (
           <ApprenticeAvatar size={32} />
         )}
         <div
           style={{
-            maxWidth: "70%",
+            maxWidth: "65%",
             backgroundColor: isMentor ? "#fff7e6" : "#e8f5e9",
             border: `3px solid ${isMentor ? "#b56c27" : "#5d9c3f"}`,
             padding: "10px 14px",
