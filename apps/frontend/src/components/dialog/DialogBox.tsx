@@ -17,7 +17,7 @@ import { useDialogStore, type MentorDialogueLine } from "../../store/dialogStore
 import { useWorldStore } from "../../store/worldStore";
 import { getQuestion, getFeedback } from "../../api/nodes";
 import { WhatCards } from "./WhatCards";
-import { FeedbackCard } from "./FeedbackCard";
+import { ConversationalFeedback } from "./ConversationalFeedback";
 import { MentorAvatar } from "./MentorAvatar";
 import { ScholarLoading } from "./ScholarLoading";
 import { PixelButton } from "../common/PixelButton";
@@ -526,11 +526,10 @@ export const DialogBox: React.FC = () => {
                 </div>
               )}
 
-              {/* 反馈卡 */}
+              {/* 对话式反馈 */}
               {phase === "feedback" && feedback && (
-                <FeedbackCard
+                <ConversationalFeedback
                   feedback={feedback}
-                  feedbackLevel={feedbackLevel ?? "hint"}
                   depthState={depthState ?? "learning"}
                   onContinue={handleContinue}
                   onClose={close}
