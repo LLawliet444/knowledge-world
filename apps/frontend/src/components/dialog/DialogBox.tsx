@@ -19,6 +19,7 @@ import { getQuestion, getFeedback } from "../../api/nodes";
 import { WhatCards } from "./WhatCards";
 import { FeedbackCard } from "./FeedbackCard";
 import { MentorAvatar } from "./MentorAvatar";
+import { ScholarLoading } from "./ScholarLoading";
 import { PixelButton } from "../common/PixelButton";
 import type { WhatCard } from "../../types/world";
 
@@ -283,52 +284,78 @@ export const DialogBox: React.FC = () => {
         {/* 主体：左 NPC + 老学者 / 右内容区 */}
         <div className="flex gap-5 items-stretch">
           {/* 左侧 */}
-          <div className="flex-shrink-0 flex flex-col items-center gap-2" style={{ width: 130 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 96,
-                height: 96,
-                backgroundColor: "#fff7e6",
-                border: "4px solid #b56c27",
-                boxShadow: "0 0 0 4px #eeb069",
-              }}
-            >
-              <img
-                src={currentNode.gateNpc.avatar}
-                alt={currentNode.gateNpc.title}
-                draggable={false}
-                style={{ width: 80, height: 80, imageRendering: "pixelated" }}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).outerHTML =
-                    '<span style="font-size:48px;line-height:1;">🧙</span>';
+          {depth === "what" ? (
+            /* What 层：NPC 头像在上，老学者在下 */
+            <div className="flex-shrink-0 flex flex-col items-center gap-2" style={{ width: 130 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 96,
+                  height: 96,
+                  backgroundColor: "#fff7e6",
+                  border: "4px solid #b56c27",
+                  boxShadow: "0 0 0 4px #eeb069",
                 }}
-              />
+              >
+                <img
+                  src={currentNode.gateNpc.avatar}
+                  alt={currentNode.gateNpc.title}
+                  draggable={false}
+                  style={{ width: 80, height: 80, imageRendering: "pixelated" }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).outerHTML =
+                      '<span style="font-size:48px;line-height:1;">🧙</span>';
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  display: "inline-block",
+                  backgroundColor: "#cf8442",
+                  color: "#fff7e6",
+                  padding: "4px 10px",
+                  border: "2px solid #492310",
+                  textShadow: "1px 1px 0px #492310",
+                  fontSize: 12,
+                  textAlign: "center",
+                }}
+              >
+                {depthLabel}
+                {phase !== "mentor_intro" && (
+                  <div style={{ fontSize: 10, opacity: 0.85, marginTop: 2 }}>
+                    第 {round} / 3 轮
+                  </div>
+                )}
+              </div>
+              <MentorAvatar variant="avatar" size={72} />
+              <div style={{ fontSize: 12, color: "#492310" }}>老学者</div>
             </div>
-            <div
-              style={{
-                display: "inline-block",
-                backgroundColor: "#cf8442",
-                color: "#fff7e6",
-                padding: "4px 10px",
-                border: "2px solid #492310",
-                textShadow: "1px 1px 0px #492310",
-                fontSize: 12,
-                textAlign: "center",
-              }}
-            >
-              {depthLabel}
-              {phase !== "mentor_intro" && (
+          ) : (
+            /* How/Why/System 层：老学者在上，学者精灵图在下 */
+            <div className="flex-shrink-0 flex flex-col items-center gap-2" style={{ width: 150 }}>
+              <MentorAvatar variant="half_body" size={96} />
+              <div
+                style={{
+                  display: "inline-block",
+                  backgroundColor: "#cf8442",
+                  color: "#fff7e6",
+                  padding: "4px 10px",
+                  border: "2px solid #492310",
+                  textShadow: "1px 1px 0px #492310",
+                  fontSize: 12,
+                  textAlign: "center",
+                }}
+              >
+                {depthLabel}
                 <div style={{ fontSize: 10, opacity: 0.85, marginTop: 2 }}>
                   第 {round} / 3 轮
                 </div>
-              )}
+              </div>
+              <ScholarLoading animating={phase === "loading" || submitting} size={120} />
             </div>
-            <MentorAvatar variant="avatar" size={72} />
-            <div style={{ fontSize: 12, color: "#492310" }}>老学者</div>
-          </div>
+          )}
 
           {/* 右侧 */}
           <div className="flex-1 min-w-0 flex flex-col gap-3" style={{ paddingTop: 4 }}>
