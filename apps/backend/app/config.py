@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
 
     max_answer_length: int = 1000
-    llm_timeout_seconds: int = 15
+    llm_timeout_seconds: int = 60
     llm_retry_times: int = 2
 
     class Config:

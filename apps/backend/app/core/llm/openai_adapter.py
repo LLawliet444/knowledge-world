@@ -89,14 +89,17 @@ class OpenAIAdapter(LLMAdapter):
 
         except asyncio.TimeoutError:
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
-            logger.warning(
+            logger.error(
                 "llm_call_timeout",
                 trace_id=trace_id,
                 model=self.model,
                 call_type="text",
                 latency_ms=latency_ms,
+                timeout_seconds=settings.llm_timeout_seconds,
+                input_chars=input_tokens,
+                message_count=len(messages),
             )
-            raise TimeoutError("LLM call timed out")
+            raise TimeoutError(f"LLM call timed out after {settings.llm_timeout_seconds}s")
         except Exception as e:
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
             logger.error(
@@ -164,14 +167,17 @@ class OpenAIAdapter(LLMAdapter):
 
         except asyncio.TimeoutError:
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
-            logger.warning(
+            logger.error(
                 "llm_call_timeout",
                 trace_id=trace_id,
                 model=self.model,
                 call_type="json",
                 latency_ms=latency_ms,
+                timeout_seconds=settings.llm_timeout_seconds,
+                input_chars=input_chars,
+                message_count=len(messages),
             )
-            raise TimeoutError("LLM call timed out")
+            raise TimeoutError(f"LLM call timed out after {settings.llm_timeout_seconds}s")
         except json.JSONDecodeError as e:
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
             logger.error(
