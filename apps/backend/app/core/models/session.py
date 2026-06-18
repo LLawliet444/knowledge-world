@@ -1,5 +1,5 @@
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 
 LAYER_ORDER = ["how", "why", "system"]
@@ -19,6 +19,9 @@ class SessionState:
     # 被滑动窗口压缩掉的历史对话摘要（当前层内）
     compressed_summary: str = ""
     node_completed: bool = False
+    # 最后一次问答缓存（供前端刷新恢复状态用）
+    last_ai_question: str = ""
+    last_user_answer: str = ""
 
     @property
     def layer_index(self) -> int:
@@ -74,6 +77,26 @@ class SessionState:
                 self.compressed_summary = self.compressed_summary + " | " + entry
             else:
                 self.compressed_summary = entry
+
+    def to_dict(self) -> dict:
+        """序列化为可存入 Redis 的 dict（JSON 兼容）"""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "SessionState":
+        """从 Redis 反序列化"""
+        return cls(
+            session_id=data["session_id"],
+            node_id=data.get("node_id"),
+            current_layer=data.get("current_layer"),
+            current_round=data.get("current_round", 0),
+            layer_dialogue=data.get("layer_dialogue", []) or [],
+            layer_summaries=data.get("layer_summaries", {}) or {},
+            compressed_summary=data.get("compressed_summary", "") or "",
+            node_completed=data.get("node_completed", False),
+            last_ai_question=data.get("last_ai_question", "") or "",
+            last_user_answer=data.get("last_user_answer", "") or "",
+        )
 
 
 def new_session() -> SessionState:

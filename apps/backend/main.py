@@ -9,6 +9,7 @@ from app.core.models.interact import (
     EnterNodeResponse,
     Evaluation,
     SessionResponse,
+    SessionStatusResponse,
     TeachingContent,
 )
 from app.core.services.node_scope_loader import load_node_scope
@@ -55,6 +56,27 @@ async def create_session():
     return SessionResponse(session_id=state.session_id)
 
 
+@app.get(
+    "/api/v1/sessions/{session_id}/status",
+    response_model=SessionStatusResponse,
+    summary="获取会话状态",
+    description="前端刷新后调用，恢复当前节点状态和最后一次问答。",
+)
+async def get_session_status(session_id: str):
+    state = session_manager.get_session(session_id)
+    if state is None:
+        raise HTTPException(404, "Session not found")
+    return SessionStatusResponse(
+        session_id=state.session_id,
+        node_id=state.node_id,
+        current_layer=state.current_layer,
+        current_round=state.current_round,
+        node_completed=state.node_completed,
+        last_ai_question=state.last_ai_question,
+        last_user_answer=state.last_user_answer,
+    )
+
+
 @app.post(
     "/api/v1/sessions/{session_id}/nodes/{node_id}/enter",
     response_model=EnterNodeResponse,
@@ -80,7 +102,7 @@ async def enter_node(session_id: str, node_id: str):
     if state.node_completed:
         raise HTTPException(409, "Node already completed in this session")
 
-    session_manager.enter_node(session_id, node_id)
+    state = session_manager.enter_node(session_id, node_id)
 
     teaching = await socratic_engine.generate_first_question(
         session_id=session_id,
@@ -93,6 +115,8 @@ async def enter_node(session_id: str, node_id: str):
     state.layer_dialogue.append(
         {"role": "ai", "content": teaching.core_text()}
     )
+    state.last_ai_question = teaching.core_text()
+    session_manager.save(state)
 
     return EnterNodeResponse(
         current_layer="how",
@@ -127,7 +151,7 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
     if scope is None:
         raise HTTPException(404, f"Node {node_id} not found")
 
-    session_manager.record_answer(session_id, req.user_input)
+    state = session_manager.record_answer(session_id, req.user_input)
 
     layer = state.current_layer
     round_num = state.current_round
@@ -162,6 +186,8 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
         )
         # 滑动窗口压缩：超过 3 轮时把最老的压缩进 compressed_summary
         state.compress_old_dialogue()
+        state.last_ai_question = teaching.core_text()
+        session_manager.save(state)
         logger.info(
             "answer_continue_layer",
             trace_id=get_trace_id(),
@@ -184,7 +210,7 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
         )
 
     layer_summary = evaluation.summary if evaluation else ""
-    session_manager.advance_layer(session_id, layer_summary)
+    state = session_manager.advance_layer(session_id, layer_summary)
 
     if state.node_completed:
         logger.info(
@@ -214,6 +240,8 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
     state.layer_dialogue.append(
         {"role": "ai", "content": next_teaching.core_text()}
     )
+    state.last_ai_question = next_teaching.core_text()
+    session_manager.save(state)
 
     logger.info(
         "answer_advanced_layer",
@@ -239,4 +267,5 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # log_config=None：禁用 uvicorn 默认的 dictConfig，避免覆盖 setup_logging() 配置的文件 handler
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_config=None)

@@ -66,3 +66,14 @@ class AnswerResponse(BaseModel):
 
 class SessionResponse(BaseModel):
     session_id: str
+
+
+class SessionStatusResponse(BaseModel):
+    """前端刷新后恢复状态用：当前节点状态 + 最后一次问答"""
+    session_id: str
+    node_id: str | None = None
+    current_layer: str | None = None
+    current_round: int = 0
+    node_completed: bool = False
+    last_ai_question: str = ""
+    last_user_answer: str = ""

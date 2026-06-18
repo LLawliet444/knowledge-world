@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     llm_timeout_seconds: int = 60
     llm_retry_times: int = 2
 
+    # Redis 配置
+    redis_url: str = "redis://localhost:6379/0"
+    # session 在 Redis 中的过期时间（秒），默认 7 天
+    session_ttl_seconds: int = 7 * 24 * 3600
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

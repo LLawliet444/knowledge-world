@@ -9,11 +9,12 @@
 1. [通用约定](#1-通用约定)
 2. [健康检查](#2-健康检查)
 3. [创建学习会话](#3-创建学习会话)
-4. [进入节点](#4-进入节点)
-5. [提交回答](#5-提交回答)
-6. [状态机流转说明](#6-状态机流转说明)
-7. [数据模型](#7-数据模型)
-8. [错误码](#8-错误码)
+4. [获取会话状态](#4-获取会话状态)
+5. [进入节点](#5-进入节点)
+6. [提交回答](#6-提交回答)
+7. [状态机流转说明](#7-状态机流转说明)
+8. [数据模型](#8-数据模型)
+9. [错误码](#9-错误码)
 
 ---
 
@@ -49,10 +50,22 @@ http://localhost:8000
 Step 1: POST /sessions            → 创建会话，拿到 session_id
 Step 2: POST /sessions/{id}/nodes/{nid}/enter  → 进入节点，返回 how 层第一轮教学
 Step 3: POST /sessions/{id}/nodes/{nid}/answer  → 用户回答，返回下一轮引导（循环）
+Step 4: GET  /sessions/{id}/status  → 刷新页面后恢复对话状态
 
 状态机自动流转：how → why → system → completed
 每层至少 3 轮对话后方可进入下一层
+会话状态持久化在 Redis，TTL 7 天，进程重启不丢失
 ```
+
+### 1.6 会话存储
+
+会话状态（SessionState）持久化在 Redis 中：
+
+- **Key 格式**：`kw:session:{session_id}`
+- **存储格式**：JSON 字符串
+- **TTL**：7 天（`SESSION_TTL_SECONDS` 可配置），每次写入刷新
+- **进程重启不丢失**：服务重启后 session 仍可用
+- **多实例共享**：多 worker / 多实例部署时 session 跨实例共享
 
 ---
 
@@ -106,7 +119,94 @@ curl -X POST http://localhost:8000/api/v1/sessions
 
 ---
 
-## 4. 进入节点
+## 4. 获取会话状态
+
+### GET /api/v1/sessions/{session_id}/status
+
+前端刷新页面后调用，从 Redis 恢复当前节点状态和最后一次问答，无需重新进入节点。
+
+**路径参数**：
+
+| 参数 | 说明 |
+|---|---|
+| `session_id` | 会话 ID |
+
+**响应字段**：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `session_id` | string | 会话 ID |
+| `node_id` | string \| null | 当前节点 ID；未进入节点时为 null |
+| `current_layer` | string \| null | 当前层（`how`/`why`/`system`）；未进入节点时为 null |
+| `current_round` | int | 当前层已回答次数 |
+| `node_completed` | bool | 节点是否全部完成 |
+| `last_ai_question` | string | 最后一次 AI 问题（核心问题文本） |
+| `last_user_answer` | string | 最后一次用户回答 |
+
+**请求示例**：
+
+```bash
+curl http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/status
+```
+
+**响应示例（对话进行中）**：
+
+```json
+{
+  "session_id": "sess_a1b2c3d4e5f6",
+  "node_id": "n001",
+  "current_layer": "how",
+  "current_round": 1,
+  "node_completed": false,
+  "last_ai_question": "虚构故事是如何让陌生人之间产生信任的？",
+  "last_user_answer": "虚构故事让陌生人有了共同信仰"
+}
+```
+
+**响应示例（刚进入节点，尚未回答）**：
+
+```json
+{
+  "session_id": "sess_a1b2c3d4e5f6",
+  "node_id": "n001",
+  "current_layer": "how",
+  "current_round": 0,
+  "node_completed": false,
+  "last_ai_question": "为什么人类能与成千上万个陌生人合作？",
+  "last_user_answer": ""
+}
+```
+
+**响应示例（未进入任何节点）**：
+
+```json
+{
+  "session_id": "sess_a1b2c3d4e5f6",
+  "node_id": null,
+  "current_layer": null,
+  "current_round": 0,
+  "node_completed": false,
+  "last_ai_question": "",
+  "last_user_answer": ""
+}
+```
+
+**前端使用建议**：
+
+- 页面加载时调用此接口，根据 `node_id` / `current_layer` 恢复 UI 状态
+- 用 `last_ai_question` 渲染对话区最后一条 AI 消息
+- 用 `last_user_answer` 渲染对话区最后一条用户消息（若为空则只显示 AI 问题）
+- `node_completed=true` 时直接展示完成态
+
+**错误**：
+
+| 状态码 | 说明 |
+|---|---|
+| `404` | session_id 不存在或已过期 |
+
+---
+
+## 5. 进入节点
 
 ### POST /api/v1/sessions/{session_id}/nodes/{node_id}/enter
 
@@ -184,7 +284,7 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/nodes/n001/
 
 ---
 
-## 5. 提交回答
+## 6. 提交回答
 
 ### POST /api/v1/sessions/{session_id}/nodes/{node_id}/answer
 
@@ -316,9 +416,9 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
 
 ---
 
-## 6. 状态机流转说明
+## 7. 状态机流转说明
 
-### 6.1 层定义
+### 7.1 层定义
 
 | 层 | 认知目标 | System Prompt 结构 | 输出 format | 结构化字段 |
 |---|---|---|---|---|
@@ -326,7 +426,7 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
 | **why** | 本质抽象 | 提炼 1-3 个跨场景规律 + 关键追问 | `"essence"` | `content` |
 | **system** | 体系建模 | 整合前三层为结构化模型 | `"model"` | `content` |
 
-### 6.2 流转规则
+### 7.2 流转规则
 
 ```
 what(前端) ──enter──→ how ──(3+ 轮 + 评估通过)──→ why ──(通过)──→ system ──(通过)──→ 完成
@@ -354,9 +454,9 @@ system 层 prompt 注入前两层 summary
 
 ---
 
-## 7. 数据模型
+## 8. 数据模型
 
-### 7.1 TeachingContent
+### 8.1 TeachingContent
 
 教学内容对象。不同层使用不同字段，`format` 决定哪些字段有值。
 
@@ -389,7 +489,7 @@ interface TeachingContent {
 - `format === "guided_question"`：渲染为「开场语 + 核心问题 + 思考方向列表」
 - `format === "essence"` / `"model"`：直接渲染 `content` 文本（可按 `\n\n` 分段）
 
-### 7.2 Evaluation
+### 8.2 Evaluation
 
 ```typescript
 interface Evaluation {
@@ -423,7 +523,7 @@ interface AnswerRequest {
 }
 ```
 
-### 7.5 AnswerResponse
+### 8.5 AnswerResponse
 
 ```typescript
 interface AnswerResponse {
@@ -439,7 +539,7 @@ interface AnswerResponse {
 }
 ```
 
-### 7.6 SessionResponse
+### 8.6 SessionResponse
 
 ```typescript
 interface SessionResponse {
@@ -447,9 +547,31 @@ interface SessionResponse {
 }
 ```
 
+### 8.7 SessionStatusResponse
+
+会话状态对象，用于前端刷新后恢复对话状态。
+
+```typescript
+interface SessionStatusResponse {
+  session_id: string;
+  /** 当前节点 ID；未进入节点时为 null */
+  node_id: string | null;
+  /** 当前层；未进入节点时为 null */
+  current_layer: "how" | "why" | "system" | null;
+  /** 当前层已回答次数 */
+  current_round: number;
+  /** 节点是否全部完成 */
+  node_completed: boolean;
+  /** 最后一次 AI 问题（核心问题文本，用于恢复对话显示） */
+  last_ai_question: string;
+  /** 最后一次用户回答（用于恢复对话显示，未回答时为空串） */
+  last_user_answer: string;
+}
+```
+
 ---
 
-## 8. 错误码
+## 9. 错误码
 
 | 状态码 | 含义 | 典型场景 |
 |---|---|---|
@@ -519,4 +641,10 @@ for i in range(3):
     if data["node_completed"]:
         print("节点完成！")
         break
+
+# 4. 刷新页面后恢复状态
+status = httpx.get(f"{BASE}/api/v1/sessions/{sid}/status").json()
+print(f"当前层: {status['current_layer']}, 轮次: {status['current_round']}")
+print(f"最后 AI 问题: {status['last_ai_question']}")
+print(f"最后用户回答: {status['last_user_answer']}")
 ```
