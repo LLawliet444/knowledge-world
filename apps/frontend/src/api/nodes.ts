@@ -21,10 +21,10 @@ import type {
 
 export const FRONTEND_TO_BACKEND_NODE: Record<string, string> = {
   n_cog_rev: "n001",
-  n_fire_ctrl: "n002",
-  n_agri_rev: "n003",
-  n_money: "n004",
-  n_imagined_order: "n005",
+  n_agri_rev: "n002",
+  n_money: "n003",
+  n_imagined_order: "n004",
+  n_capitalism: "n005",
   n_empire: "n006",
   n_sci_rev: "n007",
 };
