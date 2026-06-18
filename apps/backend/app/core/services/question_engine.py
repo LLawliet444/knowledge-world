@@ -16,7 +16,14 @@ class QuestionEngine:
         self.llm = llm
 
     async def generate_question(self, req: QuestionRequest) -> QuestionResponse:
-        messages = build_question_messages(req)
+        mentor_prompt = req.mentor_prompts.get(req.depth, "")
+        messages = build_question_messages(
+            node_name=req.node_name,
+            mystery_question=req.mystery_question,
+            source_excerpt=req.source_excerpt,
+            mentor_prompt=mentor_prompt,
+            depth=req.depth,
+        )
 
         try:
             result = await self.llm.chat_completion_json(

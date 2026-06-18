@@ -17,7 +17,13 @@ class FeedbackEngine:
         self.llm = llm
 
     async def generate_feedback(self, req: FeedbackRequest) -> FeedbackResponse:
-        messages = build_feedback_messages(req)
+        messages = build_feedback_messages(
+            node_name=req.node_name,
+            depth=req.depth,
+            source_excerpt=req.source_excerpt,
+            user_answer=req.user_answer,
+            round=req.round,
+        )
 
         try:
             result = await self.llm.chat_completion_json(

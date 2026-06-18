@@ -1,115 +1,137 @@
-from app.core.models.question import QuestionRequest
-from app.core.models.feedback import FeedbackRequest
-from app.core.models.final import FinalQuestionRequest
+import re
+
+from app.core.prompts.loader import (
+    load_feedback_prompts,
+    load_final_question_prompts,
+    load_question_prompts,
+)
+
+_QUESTION_SYSTEM, _QUESTION_USER = load_question_prompts()
+_FEEDBACK_SYSTEM, _FEEDBACK_USER = load_feedback_prompts()
+_FINAL_SYSTEM, _FINAL_USER = load_final_question_prompts()
 
 
-def build_question_messages(req: QuestionRequest) -> list[dict[str, str]]:
-    depth_instructions = {
-        "how": "问机制、过程、运作方式。句式：「它是如何...」「它的结构是什么？」",
-        "why": "问原因、反事实、条件。句式：「为什么...」「如果没有...会怎样？」",
-        "system": "问连接、迁移、关系。句式：「这与...有什么关系」「在现实中哪里能见到类似模式？」",
-    }
-    instruction = depth_instructions.get(req.depth, depth_instructions["how"])
+def _render(template: str, **kwargs: str) -> str:
+    def _replace(m: re.Match[str]) -> str:
+        key = m.group(1).strip()
+        return kwargs.get(key, m.group(0))
+    return re.sub(r"\{\{\s*(\w+)\s*\}\}", _replace, template)
 
+
+def build_question_system(depth: str) -> str:
+    return _render(_QUESTION_SYSTEM, depth=depth)
+
+
+def build_question_user(
+    node_name: str,
+    mystery_question: str,
+    source_excerpt: str,
+    mentor_prompt: str,
+) -> str:
+    return _render(
+        _QUESTION_USER,
+        node_name=node_name,
+        mystery_question=mystery_question,
+        source_excerpt=source_excerpt,
+        mentor_prompt=mentor_prompt,
+    )
+
+
+def build_question_messages(
+    node_name: str,
+    mystery_question: str,
+    source_excerpt: str,
+    mentor_prompt: str,
+    depth: str,
+) -> list[dict[str, str]]:
     return [
-        {
-            "role": "system",
-            "content": (
-                "你是一名苏格拉底式导师。你通过提问引导学习者自己发现答案。"
-                "你的风格：简洁、尖锐、只问不答。\n\n"
-                f"当前深度：【{req.depth}】\n{instruction}\n\n"
-                "请输出 JSON 格式，包含 question（核心提问）和 followups（2 个追问）。"
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"节点名称：{req.node_name}\n"
-                f"原始谜题：{req.mystery_question}\n"
-                f"原文摘要：{req.source_excerpt}\n"
-                f"导师引导语：{req.mentor_prompts.get(req.depth, '')}\n\n"
-                "请生成 1 个核心提问 + 2 个追问，每句不超过 50 字。"
-            ),
-        },
+        {"role": "system", "content": build_question_system(depth)},
+        {"role": "user", "content": build_question_user(
+            node_name=node_name,
+            mystery_question=mystery_question,
+            source_excerpt=source_excerpt,
+            mentor_prompt=mentor_prompt,
+        )},
     ]
 
 
-def build_feedback_messages(req: FeedbackRequest) -> list[dict[str, str]]:
-    depth_labels = {
-        "how": "机制",
-        "why": "因果",
-        "system": "迁移",
-    }
-    label = depth_labels.get(req.depth, "机制")
+_DEPTH_LABELS = {"how": "机制", "why": "因果", "system": "迁移"}
 
+
+def build_feedback_system() -> str:
+    return _FEEDBACK_SYSTEM
+
+
+def build_feedback_user(
+    node_name: str,
+    depth: str,
+    source_excerpt: str,
+    user_answer: str,
+    round: int,
+) -> str:
+    return _render(
+        _FEEDBACK_USER,
+        node_name=node_name,
+        depth=depth,
+        depth_label=_DEPTH_LABELS.get(depth, "机制"),
+        source_excerpt=source_excerpt,
+        user_answer=user_answer,
+        round=str(round),
+    )
+
+
+def build_feedback_messages(
+    node_name: str,
+    depth: str,
+    source_excerpt: str,
+    user_answer: str,
+    round: int,
+) -> list[dict[str, str]]:
     return [
-        {
-            "role": "system",
-            "content": (
-                "你是一名苏格拉底式导师。你的任务是诊断学习者的回答。"
-                "输出 JSON，不写额外文字。\n\n"
-                "输出结构：\n"
-                "{\n"
-                '  "feedback_card": {\n'
-                '    "understood": ["理解正确的要点（最多2条）"],\n'
-                '    "missing": ["缺失或误解的要点（最多2条）"],\n'
-                '    "guidance": "引导性提示（≤120字）",\n'
-                '    "next_question": "下一步追问"\n'
-                "  },\n"
-                '  "depth_state": "learning" | "completed",\n'
-                '  "covered_dimensions": ["concept" | "logic" | "transfer"]\n'
-                "}\n\n"
-                "depth_state 判断：completed=覆盖当前深度核心要点，learning=部分理解但有明显缺口。\n"
-                "guidance 规则：回答质量高→正向强化；部分理解→方向性提示；严重缺乏→最小必要讲解+追问。"
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"节点：{req.node_name}\n"
-                f"当前深度：{req.depth}（{label}）\n"
-                f"原文要点：{req.source_excerpt}\n"
-                f"学习者回答：{req.user_answer}\n"
-                f"当前轮次：{req.round}/3\n\n"
-                "请诊断并输出 JSON。"
-            ),
-        },
+        {"role": "system", "content": build_feedback_system()},
+        {"role": "user", "content": build_feedback_user(
+            node_name=node_name,
+            depth=depth,
+            source_excerpt=source_excerpt,
+            user_answer=user_answer,
+            round=round,
+        )},
     ]
 
 
-def build_final_question_messages(req: FinalQuestionRequest) -> list[dict[str, str]]:
+def build_final_question_system() -> str:
+    return _FINAL_SYSTEM
+
+
+def build_final_question_user(
+    node_name: str,
+    mystery_question: str,
+    source_excerpt: str,
+    user_answer: str,
+) -> str:
+    return _render(
+        _FINAL_USER,
+        node_name=node_name,
+        mystery_question=mystery_question,
+        source_excerpt=source_excerpt,
+        user_answer=user_answer,
+    )
+
+
+def build_final_question_messages(
+    node_name: str,
+    mystery_question: str,
+    source_excerpt: str,
+    user_answer: str,
+) -> list[dict[str, str]]:
     return [
-        {
-            "role": "system",
-            "content": (
-                "你是一名最终评审。用户经过四层学习后回来回答同一个核心问题。"
-                "你的任务：判断用户回答是否覆盖概念准确、机制完整、原因解释、迁移意识四个维度。\n"
-                "输出 JSON，不写额外文字。\n\n"
-                "输出结构：\n"
-                "{\n"
-                '  "passed": true | false,\n'
-                '  "coverage": {\n'
-                '    "concept_accurate": true | false,\n'
-                '    "mechanism_complete": true | false,\n'
-                '    "reason_explained": true | false,\n'
-                '    "transfer_awareness": true | false\n'
-                "  },\n"
-                '  "mentor_response": "老学者认可/引导文案（≤80字）"\n'
-                "}\n\n"
-                "通过规则：至少覆盖 3 个维度为 true。\n"
-                "未通过时 mentor_response 为引导性回应，不给出答案。"
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"节点：{req.node_name}\n"
-                f"原始谜题：{req.mystery_question}\n"
-                f"原文要点：{req.source_excerpt}\n"
-                f"用户回答：{req.user_answer}\n\n"
-                "请判断并输出 JSON。"
-            ),
-        },
+        {"role": "system", "content": build_final_question_system()},
+        {"role": "user", "content": build_final_question_user(
+            node_name=node_name,
+            mystery_question=mystery_question,
+            source_excerpt=source_excerpt,
+            user_answer=user_answer,
+        )},
     ]
 
 

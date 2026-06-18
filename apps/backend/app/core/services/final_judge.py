@@ -21,7 +21,12 @@ class FinalJudge:
         self.llm = llm
 
     async def judge(self, req: FinalQuestionRequest) -> FinalQuestionResponse:
-        messages = build_final_question_messages(req)
+        messages = build_final_question_messages(
+            node_name=req.node_name,
+            mystery_question=req.mystery_question,
+            source_excerpt=req.source_excerpt,
+            user_answer=req.user_answer,
+        )
 
         try:
             result = await self.llm.chat_completion_json(
