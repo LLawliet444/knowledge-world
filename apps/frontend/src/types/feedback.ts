@@ -1,58 +1,39 @@
-// PRD §4.2.6 高阶问答引擎接口契约
+// ── NodeInfo（节点信息，后端 API 使用）────────────────────────────────────
 
-import type { LayerType, DepthState } from "./world";
-
-// ── 提问请求 / 响应 ────────────────────────────────────────────────────────
-
-export interface QuestionRequest {
-  node_id: string;
+export interface NodeInfo {
   node_name: string;
-  depth: LayerType;
-  mystery_question: string;
-  source_excerpt: string;
-  mentor_prompts: {
-    whatIntro: string;
-    how: string;
-    why: string;
-    system: string;
-    finalReturn: string;
-  };
-  round: 1 | 2 | 3;
+  concept: string;
+  examples: string;
+  misconceptions: string;
+  learning_goals: string;
 }
 
-/**
- * What 层：前端直接使用 node.whatCards 渲染，不走此接口。
- * How / Why / System：响应 question + 2 个 followups。
- */
-export interface QuestionResponse {
+// ── ThinkingDirection（思考方向）──────────────────────────────────────────
+
+export interface ThinkingDirection {
+  dimension: "observe" | "reason" | "abstract";
+  text: string;
+}
+
+// ── Interact 请求 / 响应 ─────────────────────────────────────────────────
+
+export interface InteractResponse {
   question: string;
-  followups: [string, string];
-  depth: LayerType;
+  directions: ThinkingDirection[];
+  hint: string;
 }
 
-// ── 反馈请求 / 响应 ────────────────────────────────────────────────────────
+// ── JudgeLevel 请求 / 响应 ───────────────────────────────────────────────
 
-export type FeedbackLevel = "reinforce" | "hint" | "minimal_explain";
-
-export interface FeedbackRequest {
-  node_id: string;
-  node_name: string;
-  source_excerpt: string;
-  user_answer: string;
-  depth: LayerType;
-  round: 1 | 2 | 3;
-  feedback_level?: FeedbackLevel; // 可选，后端会重新判断
+export interface JudgeLevelResponse {
+  level: number;
 }
+
+// ── 反馈卡（dialogStore 仍用）─────────────────────────────────────────────
 
 export interface FeedbackCard {
   understood: string[];
   missing: string[];
   guidance: string;
   next_question: string;
-}
-
-export interface DiagnosticResponse {
-  feedback_card: FeedbackCard;
-  depth_state: DepthState;
-  node_state: "learning" | "mastered" | "transfer";
 }

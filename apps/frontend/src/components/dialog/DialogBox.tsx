@@ -351,7 +351,6 @@ export const DialogBox: React.FC = () => {
           <ChatDialog
             node={currentNode}
             depth={depth}
-            initialRound={round}
             depthLabel={depthLabel}
             onClose={close}
           />
