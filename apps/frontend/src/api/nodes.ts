@@ -4,8 +4,9 @@
  */
 
 import { apiFetch } from "./client";
-import type { WorldNode, LayerType } from "../types/world";
-import type { QuestionRequest, QuestionResponse, FeedbackRequest, DiagnosticResponse } from "../types/feedback";
+import type { LayerType } from "../types/world";
+import type { QuestionRequest, QuestionResponse, FeedbackRequest, DiagnosticResponse, FeedbackCard } from "../types/feedback";
+import type { DepthState } from "../types/world";
 
 // ── 本地 fallback ─────────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ const LOCAL_FOLLOWUPS: Record<LayerType, [string, string]> = {
   ],
 };
 
-const LOCAL_FEEDBACK_CARDS: Record<LayerType, Partial<DiagnosticResponse>> = {
+const LOCAL_FEEDBACK_CARDS: Record<LayerType, DiagnosticResponse> = {
   what: {
     feedback_card: {
       understood: [],
@@ -78,11 +79,17 @@ const LOCAL_FEEDBACK_CARDS: Record<LayerType, Partial<DiagnosticResponse>> = {
   },
 };
 
+/** 后端返回的 feedback 原始结构（与前端 DiagnosticResponse 字段不同） */
+interface BackendFeedbackResponse {
+  feedback_card: FeedbackCard;
+  depth_state: DepthState;
+  covered_dimensions: string[];
+}
+
 // ── 公开 API ─────────────────────────────────────────────────────────────
 
 export async function getQuestion(req: QuestionRequest): Promise<QuestionResponse> {
   if (req.depth === "what") {
-    // What 层前端直接用 node.whatCards，不走接口
     return { question: "", followups: ["", ""], depth: req.depth };
   }
 
@@ -92,20 +99,37 @@ export async function getQuestion(req: QuestionRequest): Promise<QuestionRespons
     depth: req.depth,
   };
 
-  return apiFetch<QuestionResponse>(
-    "/api/v1/nodes/question",
+  const raw = await apiFetch<{ question: string; followups: string[] }>(
+    `/api/v1/nodes/${req.node_id}/question`,
     req,
     fallback,
     8000,
   );
+
+  return {
+    question: raw.question,
+    followups: raw.followups as [string, string],
+    depth: req.depth,
+  };
 }
 
 export async function getFeedback(req: FeedbackRequest): Promise<DiagnosticResponse> {
-  const fallback = LOCAL_FEEDBACK_CARDS[req.depth] as DiagnosticResponse;
-  return apiFetch<DiagnosticResponse>(
-    "/api/v1/nodes/feedback",
+  const fallback = LOCAL_FEEDBACK_CARDS[req.depth];
+
+  const raw = await apiFetch<BackendFeedbackResponse | DiagnosticResponse>(
+    `/api/v1/nodes/${req.node_id}/feedback`,
     req,
     fallback,
     10000,
   );
+
+  // 后端返回 covered_dimensions，前端需要 node_state
+  // 若命中 fallback（后端不可用），raw 已含 node_state
+  return {
+    feedback_card: raw.feedback_card,
+    depth_state: raw.depth_state,
+    node_state: "node_state" in raw
+      ? (raw as DiagnosticResponse).node_state
+      : raw.depth_state === "completed" ? "mastered" : "learning",
+  };
 }
