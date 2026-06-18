@@ -315,7 +315,27 @@ const IntroGuide: React.FC<IntroGuideProps> = ({
     >
       {/* 跳过按钮 */}
       <button
-        onClick={(e) => { e.stopPropagation(); onSkip(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          // 跳过当前阶段，进入选择卷轴（scroll）
+          // 永不调用 onSkip（那会打开已废弃的老对话框）
+          if (phase === "dialogue") {
+            setPhase("scroll");
+            return;
+          }
+          if (phase === "scroll") {
+            // 已在卷轴阶段：跳过阅读，进入收尾
+            setOpenedMask([true, true, true]);
+            setPhase("wrapup");
+            setLineIdx(0);
+            return;
+          }
+          if (phase === "wrapup") {
+            setShowConfirmBtn(true);
+            return;
+          }
+          // confirm 阶段不处理
+        }}
         style={{
           position: "absolute",
           top: 16,

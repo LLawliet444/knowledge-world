@@ -11,15 +11,16 @@ async function apiFetch<T>(
   body: unknown,
   fallback: T,
   timeoutMs = 6000,
+  method: "GET" | "POST" = "POST",
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: method === "GET" ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
     clearTimeout(timer);

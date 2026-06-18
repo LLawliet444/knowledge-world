@@ -13,6 +13,7 @@ import type {
   SessionResponse,
   EnterNodeResponse,
   AnswerResponse,
+  SessionStatusResponse,
 } from "../types/feedback";
 
 // ── 节点 ID 映射：前端 ID → 后端 ID ─────────────────────────────────────
@@ -33,6 +34,18 @@ function mapNodeId(frontendId: string): string {
   return FRONTEND_TO_BACKEND_NODE[frontendId] ?? frontendId;
 }
 
+/** 反向映射：后端 node_id → 前端 node_id */
+const BACKEND_TO_FRONTEND_NODE: Record<string, string> = Object.entries(
+  FRONTEND_TO_BACKEND_NODE,
+).reduce((acc, [fe, be]) => {
+  acc[be] = fe;
+  return acc;
+}, {} as Record<string, string>);
+
+function unmapNodeId(backendId: string): string {
+  return BACKEND_TO_FRONTEND_NODE[backendId] ?? backendId;
+}
+
 // ── Enter 本地 fallback ──────────────────────────────────────────────────
 
 const ENTER_FALLBACK: EnterNodeResponse = {
@@ -40,14 +53,15 @@ const ENTER_FALLBACK: EnterNodeResponse = {
   layer_index: 0,
   total_layers: 3,
   teaching_content: {
-    format: "mechanisms",
-    content:
-      "试着从这几个角度思考：\n\n" +
-      "1. 回顾一下这个知识点的核心事实\n" +
-      "2. 它背后的运行机制是什么？\n" +
-      "3. 它和我们已经知道的其他知识有什么联系？\n\n" +
-      "【引导问题】\n" +
-      "用你自己的话解释一下，你是怎么理解这个知识点的？",
+    format: "guided_question",
+    opening: "欢迎来到这一层，让我们一起来推导这个知识点背后的运行机制。",
+    core_question: "用你自己的话解释一下，你是怎么理解这个知识点的？",
+    thinking_directions: [
+      "回顾一下这个知识点的核心事实",
+      "它背后的运行机制是什么？",
+      "它和我们已经知道的其他知识有什么联系？",
+    ],
+    content: null,
   },
   evaluation: null,
 };
@@ -61,11 +75,15 @@ const ANSWER_FALLBACK: AnswerResponse = {
   node_completed: false,
   layer_summary: "",
   teaching_content: {
-    format: "mechanisms",
-    content:
-      "听起来有几分道理。试着换个角度：\n\n" +
-      "【引导问题】\n" +
-      "这个机制在不同的场景下会有什么不同的表现？",
+    format: "guided_question",
+    opening: "听起来有几分道理，我们再深入想想。",
+    core_question: "这个机制在不同的场景下会有什么不同的表现？",
+    thinking_directions: [
+      "换一个场景套用一下这个机制",
+      "想想有没有反例",
+      "它依赖哪些前提条件？",
+    ],
+    content: null,
   },
   evaluation: null,
 };
@@ -91,7 +109,7 @@ export async function enterNode(
     `/api/v1/sessions/${sessionId}/nodes/${backendId}/enter`,
     {},
     ENTER_FALLBACK,
-    10000,
+    30000,
   );
 }
 
@@ -105,6 +123,64 @@ export async function answerNode(
     `/api/v1/sessions/${sessionId}/nodes/${backendId}/answer`,
     { user_input: userInput },
     ANSWER_FALLBACK,
-    10000,
+    30000,
   );
+}
+
+// ── 会话状态恢复 ─────────────────────────────────────────────────────────
+// GET /sessions/{id}/status：刷新页面后从后端 Redis 恢复会话状态
+
+const STATUS_FALLBACK: SessionStatusResponse = {
+  session_id: "",
+  node_id: null,
+  current_layer: null,
+  current_round: 0,
+  node_completed: false,
+  last_ai_question: "",
+  last_user_answer: "",
+};
+
+export interface SessionStatus {
+  /** 前端节点 ID；未进入节点时为 null */
+  frontendNodeId: string | null;
+  /** 当前层；未进入节点时为 null */
+  currentLayer: SessionStatusResponse["current_layer"];
+  /** 当前层已回答次数 */
+  currentRound: number;
+  /** 节点是否全部完成 */
+  nodeCompleted: boolean;
+  /** 最后一次 AI 问题 */
+  lastAiQuestion: string;
+  /** 最后一次用户回答 */
+  lastUserAnswer: string;
+}
+
+/**
+ * 拉取会话状态。node_id 已反向映射为前端 ID。
+ * 失败时返回 null（调用方按"无会话"处理）。
+ */
+export async function getSessionStatus(
+  sessionId: string,
+): Promise<SessionStatus | null> {
+  try {
+    const res = await apiFetch<SessionStatusResponse>(
+      `/api/v1/sessions/${sessionId}/status`,
+      null,
+      STATUS_FALLBACK,
+      8000,
+      "GET",
+    );
+    // fallback 命中（session_id 为空）视为无会话
+    if (!res.session_id) return null;
+    return {
+      frontendNodeId: res.node_id ? unmapNodeId(res.node_id) : null,
+      currentLayer: res.current_layer,
+      currentRound: res.current_round,
+      nodeCompleted: res.node_completed,
+      lastAiQuestion: res.last_ai_question,
+      lastUserAnswer: res.last_user_answer,
+    };
+  } catch {
+    return null;
+  }
 }

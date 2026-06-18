@@ -25,7 +25,7 @@ const DEPTH_LABELS: Record<LayerType, string> = {
 };
 
 export const HUD: React.FC = () => {
-  const { world, currentDepth, fogPercentage, switchDepth, nodeProgress } = useWorldStore();
+  const { world, currentDepth, fogPercentage, switchDepth, nodeProgress, resetProgress } = useWorldStore();
   const { close } = useDialogStore();
   const { isPlaying, pause, resume } = useBgmStore();
 
@@ -120,6 +120,21 @@ export const HUD: React.FC = () => {
           title={isPlaying ? "关闭 BGM" : "播放 BGM"}
         >
           <span className="font-pixel text-base">{isPlaying ? "🔊" : "🔇"}</span>
+        </button>
+
+        {/* 重置进度（清缓存） */}
+        <button
+          onClick={() => {
+            if (!world) return;
+            if (confirm("确定要重置所有探索进度吗？这将清空缓存并回到认知层起点。")) {
+              close();
+              resetProgress(world);
+            }
+          }}
+          className="mt-2 flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]"
+          title="重置探索进度"
+        >
+          <span className="font-pixel text-base">↺</span>
         </button>
       </div>
     </>

@@ -32,7 +32,12 @@ export const DialogBox: React.FC = () => {
     close,
   } = useDialogStore();
 
-  const { updateNodeDepthState } = useWorldStore();
+  const { updateNodeDepthState, nodeProgress } = useWorldStore();
+
+  // 原问回响：system 全通后回到 what 层解答初始问题，走 ChatDialog 而非翻卡
+  const isFinalQuestion =
+    !!currentNode &&
+    nodeProgress?.[currentNode.id]?.finalQuestion === "available";
 
   // mentor_intro 阶段：当前对话行索引
   const [mentorLineIdx, setMentorLineIdx] = useState(0);
@@ -173,6 +178,7 @@ export const DialogBox: React.FC = () => {
     border: "4px solid #492310",
     boxShadow: "0 4px 0 rgba(0,0,0,0.2)",
     whiteSpace: "nowrap",
+    zIndex: 10,
     fontFamily: "'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace",
   };
 
@@ -219,7 +225,7 @@ export const DialogBox: React.FC = () => {
           ✕
         </button>
 
-        {depth === "what" ? (
+        {depth === "what" && !isFinalQuestion ? (
           <div className="flex flex-col gap-3" style={{ paddingTop: 4 }}>
             <div
               style={{
@@ -353,6 +359,7 @@ export const DialogBox: React.FC = () => {
             depth={depth}
             depthLabel={depthLabel}
             onClose={close}
+            isFinalQuestion={isFinalQuestion}
           />
         )}
         </div>

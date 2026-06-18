@@ -68,3 +68,9 @@ canvas {
   background: var(--color-wood);
   border: 2px solid var(--color-parchment);
 }
+
+/* 打字机光标 / loading 点闪烁 */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}

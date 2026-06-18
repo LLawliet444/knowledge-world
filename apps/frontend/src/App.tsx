@@ -6,13 +6,20 @@ import { DialogBox } from "./components/dialog/DialogBox";
 import { HUD } from "./components/ui/HUD";
 
 export const App: React.FC = () => {
-  const { world, loadWorld } = useWorldStore();
+  const { world, loadWorld, sessionId, restoreSession } = useWorldStore();
 
   useEffect(() => {
     if (!world) {
       loadWorld(sapiensWorld);
     }
   }, []);
+
+  // 世界加载后，若有 sessionId 则从后端恢复进度（刷新页面场景）
+  useEffect(() => {
+    if (world && sessionId) {
+      restoreSession();
+    }
+  }, [world, sessionId, restoreSession]);
 
   if (!world) return null;
 
