@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useWorldStore } from "../../store/worldStore";
-import { interact, judgeLevel, buildChatHistory } from "../../api/nodes";
+import { createSession, enterNode, answerNode } from "../../api/nodes";
 import { MentorAvatar } from "./MentorAvatar";
 import { ApprenticeAvatar } from "./ApprenticeAvatar";
 import { PixelButton } from "../common/PixelButton";
 import type { WorldNode, LayerType } from "../../types/world";
-import type { ThinkingDirection } from "../../types/feedback";
+import type { TeachingContent } from "../../types/feedback";
 
 interface ChatMessage {
   id: number;
   role: "mentor" | "user";
   text: string;
-  directions?: ThinkingDirection[];
-  hint?: string;
+  teaching?: TeachingContent;
+  isEvaluation?: boolean;
+  isLayerTransition?: boolean;
+  evalReason?: string;
 }
 
 interface ChatDialogProps {
@@ -22,9 +24,19 @@ interface ChatDialogProps {
   onClose: () => void;
 }
 
+const LAYER_LABELS: Record<string, string> = {
+  how: "机制理解",
+  why: "本质抽象",
+  system: "体系建模",
+};
+
+/** 将 TeachingContent | null 转为 ChatMessage.teaching 所需的类型 */
+function tc(t: TeachingContent | null): TeachingContent | undefined {
+  return t ?? undefined;
+}
+
 export const ChatDialog: React.FC<ChatDialogProps> = ({
   node,
-  depth,
   depthLabel,
   onClose,
 }) => {
@@ -32,51 +44,50 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [level, setLevel] = useState(1);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentLayer, setCurrentLayer] = useState<string>("how");
+  const [nodeCompleted, setNodeCompleted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, submitting]);
 
-  const fetchInteract = useCallback(
-    async (userInput: string, currentLevel: number, chatHistory: string) => {
-      setSubmitting(true);
-      try {
-        const res = await interact(node, userInput, currentLevel, chatHistory);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            role: "mentor",
-            text: res.question,
-            directions: res.directions,
-            hint: res.hint,
-          },
-        ]);
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            role: "mentor",
-            text: "用你自己的话解释一下，你是怎么理解这个知识点的？",
-          },
-        ]);
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [node],
-  );
+  const initSession = useCallback(async () => {
+    setSubmitting(true);
+    try {
+      const sess = await createSession();
+      setSessionId(sess.session_id);
+
+      const enterRes = await enterNode(sess.session_id, node.id);
+      setCurrentLayer(enterRes.current_layer);
+      setMessages([
+        {
+          id: Date.now(),
+          role: "mentor",
+          text: enterRes.teaching_content.content,
+          teaching: enterRes.teaching_content,
+        },
+      ]);
+    } catch {
+      setMessages([
+        {
+          id: Date.now(),
+          role: "mentor",
+          text: "试着从这几个角度思考：\n\n1. 回顾一下这个知识点的核心事实\n2. 它背后的运行机制是什么？\n3. 它和我们已经知道的其他知识有什么联系？\n\n【引导问题】\n用你自己的话解释一下，你是怎么理解这个知识点的？",
+        },
+      ]);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [node.id]);
 
   useEffect(() => {
-    fetchInteract("", 1, "");
+    initSession();
   }, []);
 
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || submitting) return;
+    if (!inputText.trim() || submitting || !sessionId) return;
     const userText = inputText.trim();
     setInputText("");
 
@@ -88,59 +99,90 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     setSubmitting(true);
 
     try {
-      const questions: string[] = [];
-      const answers: string[] = [];
-      for (const m of messages) {
-        if (m.role === "mentor") questions.push(m.text);
-        else if (m.role === "user") answers.push(m.text);
-      }
-      const chatHistory = buildChatHistory(questions, answers);
+      const res = await answerNode(sessionId, node.id, userText);
+      setCurrentLayer(res.current_layer);
 
-      const [interactRes, judgeRes] = await Promise.all([
-        interact(node, userText, level, chatHistory),
-        judgeLevel(node, userText),
-      ]);
+      const tcContent = res.teaching_content;
+      const evalResult = res.evaluation;
 
-      const newLevel = Math.max(level, judgeRes.level);
-      setLevel(newLevel);
+      if (res.node_completed) {
+        setNodeCompleted(true);
+        updateNodeDepthState(node.id, res.current_layer as LayerType, "completed");
 
-      if (newLevel >= 4) {
-        updateNodeDepthState(node.id, depth, "completed");
+        const layerLabel = LAYER_LABELS[res.current_layer] ?? res.current_layer;
+        const evalMsgs: ChatMessage[] = evalResult
+          ? [
+              {
+                id: Date.now(),
+                role: "mentor",
+                text: `📋 本层评估（${layerLabel}）\n${evalResult.reason}`,
+                isEvaluation: true,
+                evalReason: evalResult.reason,
+              },
+            ]
+          : [];
         setMessages((prev) => [
           ...prev,
+          ...evalMsgs,
           {
             id: Date.now(),
             role: "mentor",
-            text: interactRes.question,
-            directions: interactRes.directions,
-            hint: interactRes.hint,
-          },
-          {
-            id: Date.now(),
-            role: "mentor",
-            text: "",
-            type: "completed" as unknown as undefined,
+            text: "🎉 这个节点的探索已经全部完成了！迷雾散去了一部分——对前一个节点的理解让你看见了相邻的问题。",
           },
         ]);
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: Date.now(),
-              role: "mentor",
-              text: "🎉 这一层你已经掌握了！迷雾散去了一部分——对前一个节点的理解让你看见了相邻的问题。",
-            },
-          ]);
-        }, 600);
-      } else {
+        return;
+      }
+
+      if (res.can_advance && res.layer_summary) {
+        const oldLayerLabel = LAYER_LABELS[currentLayer] ?? currentLayer;
+        const newLayerLabel = LAYER_LABELS[res.current_layer] ?? res.current_layer;
+
+        const transitionMsg: ChatMessage = {
+          id: Date.now(),
+          role: "mentor",
+          text: `✅ ${oldLayerLabel} 已通过\n\n${res.layer_summary}\n\n现在进入 ${newLayerLabel} 层。`,
+          isLayerTransition: true,
+        };
+
+        const nextMsgs: ChatMessage[] = [transitionMsg];
+        if (tcContent) {
+          nextMsgs.push({
+            id: Date.now(),
+            role: "mentor",
+            text: tcContent.content,
+            teaching: tc(tcContent),
+          });
+        }
+        setMessages((prev) => [...prev, ...nextMsgs]);
+      } else if (tcContent) {
+        const evalMsgs2: ChatMessage[] = evalResult
+          ? [
+              {
+                id: Date.now(),
+                role: "mentor",
+                text: `📋 老学者评估：${evalResult.reason}`,
+                isEvaluation: true,
+              },
+            ]
+          : [];
+        setMessages((prev) => [
+          ...prev,
+          ...evalMsgs2,
+          {
+            id: Date.now(),
+            role: "mentor",
+            text: tcContent.content,
+            teaching: tc(tcContent),
+          },
+        ]);
+      } else if (evalResult) {
         setMessages((prev) => [
           ...prev,
           {
             id: Date.now(),
             role: "mentor",
-            text: interactRes.question,
-            directions: interactRes.directions,
-            hint: interactRes.hint,
+            text: `📋 老学者评估：${evalResult.reason}`,
+            isEvaluation: true,
           },
         ]);
       }
@@ -150,13 +192,13 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         {
           id: Date.now(),
           role: "mentor",
-          text: "听起来学到了不少知识，试着换一个角度再想想看？",
+          text: "听起来学到了不少知识。试着换一个角度再想想看？",
         },
       ]);
     } finally {
       setSubmitting(false);
     }
-  }, [inputText, submitting, messages, node, level, depth, updateNodeDepthState]);
+  }, [inputText, submitting, sessionId, node.id, currentLayer, updateNodeDepthState]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -168,10 +210,22 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     [handleSend],
   );
 
-  const isCompleted = messages.some((m) => m.text.startsWith("🎉"));
-
   const renderMessage = (msg: ChatMessage) => {
     const isMentor = msg.role === "mentor";
+
+    let bgColor = isMentor ? "#fff7e6" : "#e8f5e9";
+    let borderColor = isMentor ? "#b56c27" : "#5d9c3f";
+
+    if (msg.isLayerTransition) {
+      bgColor = "#f0e8d8";
+      borderColor = "#8b5a2b";
+    } else if (msg.isEvaluation) {
+      bgColor = "#dff0e4";
+      borderColor = "#5d9c3f";
+    } else if (msg.text.includes("🎉")) {
+      bgColor = "#dff0e4";
+      borderColor = "#5d9c3f";
+    }
 
     return (
       <div
@@ -189,42 +243,20 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         ) : (
           <ApprenticeAvatar size={32} />
         )}
-        <div style={{ maxWidth: "65%", flex: 1, minWidth: 0 }}>
+        <div style={{ maxWidth: "70%", minWidth: 0 }}>
           <div
             style={{
-              backgroundColor: isMentor ? "#fff7e6" : "#e8f5e9",
-              border: `3px solid ${isMentor ? "#b56c27" : "#5d9c3f"}`,
+              backgroundColor: bgColor,
+              border: `3px solid ${borderColor}`,
               padding: "10px 14px",
               fontSize: 15,
-              lineHeight: 1.6,
+              lineHeight: 1.7,
               color: "#492310",
+              whiteSpace: "pre-wrap",
             }}
           >
             {msg.text}
           </div>
-
-          {msg.directions && msg.directions.length > 0 && (
-            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-              {msg.directions.map((d, i) => (
-                <div
-                  key={i}
-                  style={{
-                    backgroundColor: "#f0e8d8",
-                    border: "2px solid #8b5a2b",
-                    padding: "6px 10px",
-                    fontSize: 13,
-                    color: "#492310",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <span style={{ fontWeight: "bold" }}>
-                    {d.dimension === "observe" ? "👀 " : d.dimension === "reason" ? "🧠 " : "🌟 "}
-                  </span>
-                  {d.text}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     );
@@ -258,7 +290,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
           marginBottom: 8,
         }}
       >
-        {depthLabel}
+        {depthLabel} · {LAYER_LABELS[currentLayer] ?? currentLayer}
       </div>
 
       <div
@@ -283,14 +315,37 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
             }}
           >
             <span style={{ fontSize: 13, color: "#492310" }}>
-              {messages.length === 0 ? "老学者正在思考问题…" : "老学者正在思考你的回答…"}
+              {messages.length === 0
+                ? "创建学习会话…"
+                : "老学者正在思考你的回答…"}
             </span>
             <span
               style={{ display: "inline-flex", gap: 4, alignItems: "center" }}
             >
-              <span style={{ width: 6, height: 6, backgroundColor: "#492310", animation: "pulse 0.8s ease-in-out infinite" }} />
-              <span style={{ width: 6, height: 6, backgroundColor: "#492310", animation: "pulse 0.8s ease-in-out 0.15s infinite" }} />
-              <span style={{ width: 6, height: 6, backgroundColor: "#492310", animation: "pulse 0.8s ease-in-out 0.3s infinite" }} />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: "#492310",
+                  animation: "pulse 0.8s ease-in-out infinite",
+                }}
+              />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: "#492310",
+                  animation: "pulse 0.8s ease-in-out 0.15s infinite",
+                }}
+              />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: "#492310",
+                  animation: "pulse 0.8s ease-in-out 0.3s infinite",
+                }}
+              />
             </span>
           </div>
         )}
@@ -298,7 +353,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {!isCompleted && (
+      {!nodeCompleted && (
         <div
           style={{
             borderTop: "3px solid #b56c27",
@@ -309,7 +364,6 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
           }}
         >
           <textarea
-            ref={textareaRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value.slice(0, 500))}
             onKeyDown={handleKeyDown}
@@ -321,7 +375,8 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
               backgroundColor: "#fff7e6",
               border: "3px solid #b56c27",
               padding: 10,
-              fontFamily: "'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace",
+              fontFamily:
+                "'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace",
               fontSize: 14,
               color: "#492310",
               outline: "none",
@@ -336,14 +391,25 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
               e.currentTarget.style.borderColor = "#b56c27";
             }}
           />
-          <PixelButton onClick={handleSend} disabled={!inputText.trim() || submitting} variant="primary">
+          <PixelButton
+            onClick={handleSend}
+            disabled={!inputText.trim() || submitting}
+            variant="primary"
+          >
             发送
           </PixelButton>
         </div>
       )}
 
-      {isCompleted && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "8px 0" }}>
+      {nodeCompleted && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            padding: "8px 0",
+          }}
+        >
           <PixelButton onClick={onClose} variant="success">
             继续探索
           </PixelButton>

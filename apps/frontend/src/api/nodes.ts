@@ -1,87 +1,110 @@
 /**
  * 节点问答 API
  * What 层走本地 whatCards；How/Why/System 走后端
+ *
+ * 后端接口（api-docs.md v0.3.0）：
+ *   POST /api/v1/sessions
+ *   POST /api/v1/sessions/{session_id}/nodes/{node_id}/enter
+ *   POST /api/v1/sessions/{session_id}/nodes/{node_id}/answer
  */
 
 import { apiFetch } from "./client";
-import type { WorldNode } from "../types/world";
-import type { NodeInfo, InteractResponse, JudgeLevelResponse } from "../types/feedback";
+import type {
+  SessionResponse,
+  EnterNodeResponse,
+  AnswerResponse,
+} from "../types/feedback";
 
-// ── 本地 fallback ─────────────────────────────────────────────────────────
+// ── 节点 ID 映射：前端 ID → 后端 ID ─────────────────────────────────────
+//
+// 后端使用 n001-n007，前端使用有意义的英文 ID
 
-const LOCAL_FALLBACK: InteractResponse = {
-  question: "用你自己的话解释一下，你是怎么理解这个知识点的？",
-  directions: [
-    { dimension: "observe", text: "先回顾一下这个知识点描述了什么样的事实或现象。" },
-    { dimension: "reason", text: "想想它背后的原因或逻辑是什么。" },
-    { dimension: "abstract", text: "如果能把这个知识提炼成一句话，你会怎么说？" },
-  ],
-  hint: "",
+export const FRONTEND_TO_BACKEND_NODE: Record<string, string> = {
+  n_cog_rev: "n001",
+  n_fire_ctrl: "n002",
+  n_agri_rev: "n003",
+  n_money: "n004",
+  n_imagined_order: "n005",
+  n_empire: "n006",
+  n_sci_rev: "n007",
 };
 
-// ── 从 WorldNode 构建后端所需的 NodeInfo ──────────────────────────────────
-
-function buildNodeInfo(node: WorldNode): NodeInfo {
-  const defCard = node.whatCards.find((c) => c.type === "definition");
-  const exampleCard = node.whatCards.find((c) => c.type === "example");
-  return {
-    node_name: node.name,
-    concept: defCard?.text ?? node.mysteryQuestion,
-    examples: exampleCard?.text ?? node.sourceExcerpt,
-    misconceptions: node.sourceExcerpt,
-    learning_goals: node.mysteryQuestion,
-  };
+function mapNodeId(frontendId: string): string {
+  return FRONTEND_TO_BACKEND_NODE[frontendId] ?? frontendId;
 }
 
-// ── 构建对话历史文本 ─────────────────────────────────────────────────────
+// ── Enter 本地 fallback ──────────────────────────────────────────────────
 
-export function buildChatHistory(
-  questions: string[],
-  answers: string[],
-): string {
-  const lines: string[] = [];
-  const len = Math.max(questions.length, answers.length);
-  for (let i = 0; i < len; i++) {
-    if (i < questions.length) {
-      lines.push(`导师问：${questions[i]}`);
-    }
-    if (i < answers.length) {
-      lines.push(`用户答：${answers[i]}`);
-    }
-  }
-  return lines.join("\n");
-}
+const ENTER_FALLBACK: EnterNodeResponse = {
+  current_layer: "how",
+  layer_index: 0,
+  total_layers: 3,
+  teaching_content: {
+    format: "mechanisms",
+    content:
+      "试着从这几个角度思考：\n\n" +
+      "1. 回顾一下这个知识点的核心事实\n" +
+      "2. 它背后的运行机制是什么？\n" +
+      "3. 它和我们已经知道的其他知识有什么联系？\n\n" +
+      "【引导问题】\n" +
+      "用你自己的话解释一下，你是怎么理解这个知识点的？",
+  },
+  evaluation: null,
+};
+
+const ANSWER_FALLBACK: AnswerResponse = {
+  session_id: "",
+  node_id: "",
+  current_layer: "how",
+  current_round: 1,
+  can_advance: false,
+  node_completed: false,
+  layer_summary: "",
+  teaching_content: {
+    format: "mechanisms",
+    content:
+      "听起来有几分道理。试着换个角度：\n\n" +
+      "【引导问题】\n" +
+      "这个机制在不同的场景下会有什么不同的表现？",
+  },
+  evaluation: null,
+};
 
 // ── 公开 API ─────────────────────────────────────────────────────────────
 
-export async function interact(
-  node: WorldNode,
-  userInput: string,
-  level: number,
-  chatHistory: string,
-): Promise<InteractResponse> {
-  return apiFetch<InteractResponse>(
-    `/api/v1/nodes/${node.id}/interact`,
-    {
-      node: buildNodeInfo(node),
-      user_input: userInput,
-      level,
-      chat_history: chatHistory,
-    },
-    LOCAL_FALLBACK,
+export async function createSession(): Promise<SessionResponse> {
+  const fallback: SessionResponse = { session_id: "sess_fallback" };
+  return apiFetch<SessionResponse>(
+    "/api/v1/sessions",
+    {},
+    fallback,
+    8000,
+  );
+}
+
+export async function enterNode(
+  sessionId: string,
+  frontendNodeId: string,
+): Promise<EnterNodeResponse> {
+  const backendId = mapNodeId(frontendNodeId);
+  return apiFetch<EnterNodeResponse>(
+    `/api/v1/sessions/${sessionId}/nodes/${backendId}/enter`,
+    {},
+    ENTER_FALLBACK,
     10000,
   );
 }
 
-export async function judgeLevel(
-  node: WorldNode,
+export async function answerNode(
+  sessionId: string,
+  frontendNodeId: string,
   userInput: string,
-): Promise<JudgeLevelResponse> {
-  const fallback: JudgeLevelResponse = { level: 2 };
-  return apiFetch<JudgeLevelResponse>(
-    `/api/v1/nodes/${node.id}/judge-level`,
+): Promise<AnswerResponse> {
+  const backendId = mapNodeId(frontendNodeId);
+  return apiFetch<AnswerResponse>(
+    `/api/v1/sessions/${sessionId}/nodes/${backendId}/answer`,
     { user_input: userInput },
-    fallback,
-    8000,
+    ANSWER_FALLBACK,
+    10000,
   );
 }

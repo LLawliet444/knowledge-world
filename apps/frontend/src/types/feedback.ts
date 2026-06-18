@@ -1,35 +1,46 @@
-// ── NodeInfo（节点信息，后端 API 使用）────────────────────────────────────
+// ── API 响应类型（匹配 api-docs.md v0.3.0）────────────────────────────────
 
-export interface NodeInfo {
-  node_name: string;
-  concept: string;
-  examples: string;
-  misconceptions: string;
-  learning_goals: string;
+/** 教学内容 */
+export interface TeachingContent {
+  format: "mechanisms" | "essence" | "model";
+  content: string;
 }
 
-// ── ThinkingDirection（思考方向）──────────────────────────────────────────
-
-export interface ThinkingDirection {
-  dimension: "observe" | "reason" | "abstract";
-  text: string;
+/** LLM 评估结果 */
+export interface Evaluation {
+  can_advance: boolean;
+  reason: string;
+  summary: string;
 }
 
-// ── Interact 请求 / 响应 ─────────────────────────────────────────────────
-
-export interface InteractResponse {
-  question: string;
-  directions: ThinkingDirection[];
-  hint: string;
+/** 创建会话响应 */
+export interface SessionResponse {
+  session_id: string;
 }
 
-// ── JudgeLevel 请求 / 响应 ───────────────────────────────────────────────
-
-export interface JudgeLevelResponse {
-  level: number;
+/** 进入节点响应 */
+export interface EnterNodeResponse {
+  current_layer: "how" | "why" | "system";
+  layer_index: number;
+  total_layers: number;
+  teaching_content: TeachingContent;
+  evaluation: null;
 }
 
-// ── 反馈卡（dialogStore 仍用）─────────────────────────────────────────────
+/** 提交回答响应 */
+export interface AnswerResponse {
+  session_id: string;
+  node_id: string;
+  current_layer: "how" | "why" | "system";
+  current_round: number;
+  can_advance: boolean;
+  node_completed: boolean;
+  layer_summary: string;
+  teaching_content: TeachingContent | null;
+  evaluation: Evaluation | null;
+}
+
+// ── 反馈卡（What 层 dialogStore 仍用）─────────────────────────────────────
 
 export interface FeedbackCard {
   understood: string[];
