@@ -1,27 +1,40 @@
 from pydantic import BaseModel, Field
 
 
-class NodeInfo(BaseModel):
-    node_name: str = Field(..., max_length=12)
-    concept: str
-    examples: str
-    misconceptions: str
-    learning_goals: str
+class TeachingContent(BaseModel):
+    format: str
+    content: str
 
 
-class ThinkingDirection(BaseModel):
-    dimension: str
-    text: str
+class Evaluation(BaseModel):
+    can_advance: bool
+    reason: str
+    summary: str = ""
 
 
-class InteractRequest(BaseModel):
-    node: NodeInfo
-    user_input: str = Field(default="", max_length=1000)
-    level: int = Field(default=1, ge=1, le=4)
-    chat_history: str = ""
+class EnterNodeResponse(BaseModel):
+    current_layer: str
+    layer_index: int
+    total_layers: int
+    teaching_content: TeachingContent
+    evaluation: Evaluation | None = None
 
 
-class InteractResponse(BaseModel):
-    question: str
-    directions: list[ThinkingDirection]
-    hint: str = ""
+class AnswerRequest(BaseModel):
+    user_input: str = Field(..., max_length=1000)
+
+
+class AnswerResponse(BaseModel):
+    session_id: str
+    node_id: str
+    current_layer: str
+    current_round: int
+    can_advance: bool
+    node_completed: bool
+    layer_summary: str = ""
+    teaching_content: TeachingContent | None = None
+    evaluation: Evaluation | None = None
+
+
+class SessionResponse(BaseModel):
+    session_id: str
