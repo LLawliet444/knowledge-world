@@ -15,12 +15,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useDialogStore, type MentorDialogueLine } from "../../store/dialogStore";
 import { useWorldStore } from "../../store/worldStore";
-import { getQuestion, getFeedback } from "../../api/nodes";
 import { WhatCards } from "./WhatCards";
-import { ConversationalFeedback } from "./ConversationalFeedback";
-import { MentorAvatar } from "./MentorAvatar";
+import { ChatDialog } from "./ChatDialog";
 import { ScholarLoading } from "./ScholarLoading";
-import { PixelButton } from "../common/PixelButton";
 import type { WhatCard } from "../../types/world";
 
 export const DialogBox: React.FC = () => {
@@ -29,23 +26,13 @@ export const DialogBox: React.FC = () => {
     currentNode,
     depth,
     round,
-    question,
-    followups,
-    feedback,
-    feedbackLevel,
-    depthState,
     mentorLines,
-    setLoading,
     setMentorIntro,
     setReading,
-    setQuestion,
-    setFeedback,
     close,
   } = useDialogStore();
 
   const { updateNodeDepthState } = useWorldStore();
-  const [answer, setAnswer] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   // mentor_intro 阶段：当前对话行索引
   const [mentorLineIdx, setMentorLineIdx] = useState(0);
@@ -99,34 +86,12 @@ export const DialogBox: React.FC = () => {
 
   // ── 打开节点后，根据深度进入不同阶段 ──────────────────────
   useEffect(() => {
-    if (!currentNode || phase !== "loading") return;
+    if (!currentNode || phase !== "loading" || depth !== "what") return;
 
-    if (depth === "what") {
-      // 构建引导对话，进入 mentor_intro 阶段
-      const lines = buildMentorLines(currentNode.whatCards, currentNode.mentorPrompts.whatIntro);
-      setMentorIntro(lines);
-    } else {
-      getQuestion({
-        node_id: currentNode.id,
-        node_name: currentNode.name,
-        depth,
-        mystery_question: currentNode.mysteryQuestion,
-        source_excerpt: currentNode.sourceExcerpt,
-        mentor_prompts: currentNode.mentorPrompts,
-        round: round as 1 | 2 | 3,
-      })
-        .then((res) => {
-          setQuestion(res);
-        })
-        .catch(() => {
-          setQuestion({
-            question: `用你自己的话解释：【${currentNode.name}】？`,
-            followups: ["", ""],
-            depth,
-          });
-        });
-    }
-  }, [currentNode?.id, phase]);
+    // 构建引导对话，进入 mentor_intro 阶段
+    const lines = buildMentorLines(currentNode.whatCards, currentNode.mentorPrompts.whatIntro);
+    setMentorIntro(lines);
+  }, [currentNode?.id, phase, depth]);
 
   // mentor_intro 阶段：点击推进对话
   const handleMentorClick = useCallback(() => {
@@ -161,33 +126,6 @@ export const DialogBox: React.FC = () => {
     },
     [currentNode, updateNodeDepthState, close],
   );
-
-  // 用户提交回答
-  const handleSubmitAnswer = useCallback(async () => {
-    if (!currentNode || !answer.trim() || submitting) return;
-    setSubmitting(true);
-    try {
-      const res = await getFeedback({
-        node_id: currentNode.id,
-        node_name: currentNode.name,
-        source_excerpt: currentNode.sourceExcerpt,
-        user_answer: answer,
-        depth,
-        round: round as 1 | 2 | 3,
-      });
-      setFeedback(res.feedback_card, res.node_state, res.depth_state);
-      updateNodeDepthState(currentNode.id, depth, res.depth_state);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [currentNode, answer, depth, round, submitting, setFeedback, updateNodeDepthState]);
-
-  // 继续追问
-  const handleContinue = useCallback(() => {
-    useDialogStore.getState().nextRound();
-    setAnswer("");
-    useDialogStore.getState().setLoading();
-  }, []);
 
   // 深度标签文字
   const depthLabel =
@@ -281,8 +219,8 @@ export const DialogBox: React.FC = () => {
           ✕
         </button>
 
-        {/* 内容区（无左边栏，聊天式布局） */}
-        <div className="flex flex-col gap-3" style={{ paddingTop: 4 }}>
+        {depth === "what" ? (
+          <div className="flex flex-col gap-3" style={{ paddingTop: 4 }}>
             <div
               style={{
                 fontSize: 20,
@@ -407,89 +345,17 @@ export const DialogBox: React.FC = () => {
                   onComplete={handleWhatComplete}
                 />
               )}
-
-              {/* How/Why/System 提问 */}
-              {phase === "question" && question && (
-                <div className="flex flex-col gap-3">
-                  <div style={{ fontSize: 18, lineHeight: 1.5, color: "#492310" }}>
-                    {question}
-                  </div>
-                  {followups?.[0] && (
-                    <div style={{ fontSize: 14, color: "#492310", fontStyle: "italic" }}>
-                      💬 {followups[0]}
-                    </div>
-                  )}
-                  {followups?.[1] && (
-                    <div style={{ fontSize: 14, color: "#492310", fontStyle: "italic" }}>
-                      💬 {followups[1]}
-                    </div>
-                  )}
-                  <textarea
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value.slice(0, 500))}
-                    placeholder="用你自己的话回答。不必完美，真诚就好。"
-                    rows={3}
-                    style={{
-                      backgroundColor: "#fff7e6",
-                      border: "3px solid #b56c27",
-                      padding: 10,
-                      fontFamily: "'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace",
-                      fontSize: 16,
-                      color: "#492310",
-                      outline: "none",
-                      boxShadow: "inset 3px 3px 0px rgba(0,0,0,0.1)",
-                      resize: "vertical",
-                      width: "100%",
-                    }}
-                    onFocus={(e) => { (e.currentTarget as HTMLTextAreaElement).style.borderColor = "#da9100"; }}
-                    onBlur={(e) => { (e.currentTarget as HTMLTextAreaElement).style.borderColor = "#b56c27"; }}
-                  />
-                  <div className="flex items-center justify-between">
-                    <span style={{ fontSize: 12, color: "#492310", opacity: 0.7 }}>
-                      {answer.length} / 500
-                    </span>
-                    <div className="flex gap-2">
-                      <PixelButton onClick={close} variant="secondary">关闭</PixelButton>
-                      <PixelButton onClick={handleSubmitAnswer} disabled={!answer.trim() || submitting}>
-                        {submitting ? "提交中…" : "提交回答"}
-                      </PixelButton>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 对话式反馈 */}
-              {phase === "feedback" && feedback && (
-                <ConversationalFeedback
-                  feedback={feedback}
-                  depthState={depthState ?? "learning"}
-                  onContinue={handleContinue}
-                  onClose={close}
-                />
-              )}
-
-              {/* 终问回响 */}
-              {phase === "final" && (
-                <div className="flex flex-col gap-3">
-                  <div style={{ fontSize: 18, lineHeight: 1.5, color: "#492310", fontStyle: "italic" }}>
-                    {currentNode.mentorPrompts.finalReturn}
-                  </div>
-                  <div style={{
-                    backgroundColor: "#fff7e6",
-                    border: "4px solid #b56c27",
-                    padding: 12,
-                    boxShadow: "inset 3px 3px 0px rgba(0,0,0,0.1)",
-                  }}>
-                    <div style={{ fontSize: 12, color: "#492310", marginBottom: 4 }}>终问回响</div>
-                    <div style={{ fontSize: 16, color: "#492310" }}>{currentNode.mysteryQuestion}</div>
-                  </div>
-                  <div className="flex justify-end">
-                    <PixelButton onClick={close} variant="secondary">稍后回答</PixelButton>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
+        ) : (
+          <ChatDialog
+            node={currentNode}
+            depth={depth}
+            initialRound={round}
+            depthLabel={depthLabel}
+            onClose={close}
+          />
+        )}
         </div>
       </div>
   );
