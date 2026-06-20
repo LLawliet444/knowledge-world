@@ -12,6 +12,7 @@ import type { World, LayerType } from "../types/world";
 import {
   buildInitialProgress,
   calcFogPercentage,
+  afterNodeCompleted,
   type NodeProgress,
 } from "../utils/depthGate";
 import { getSessionStatus, type SessionStatus } from "../api/nodes";
@@ -64,6 +65,18 @@ interface WorldActions {
     nodeId: string,
     state: "locked" | "available" | "completed",
   ) => void;
+
+  /** 记录终问最近一次评价（correct/partial/incorrect） */
+  setFinalQuestionVerdict: (
+    nodeId: string,
+    verdict: "correct" | "partial" | "incorrect",
+  ) => void;
+
+  /**
+   * 节点终问完成后，解锁下一节点（在 what 层设为 available，迷雾消散）。
+   * 依据 node.nextDiscoveryId ?? node.neighbors[0] 指向的节点。
+   */
+  unlockNextNode: (nodeId: string) => void;
 
   /** 深度切换 */
   switchDepth: (depth: LayerType) => void;
@@ -158,6 +171,33 @@ export const useWorldStore = create<WorldState & WorldActions>()(
         });
       },
 
+      setFinalQuestionVerdict: (nodeId, verdict) => {
+        const { nodeProgress } = get();
+        const p = nodeProgress[nodeId];
+        if (!p) return;
+        set({
+          nodeProgress: {
+            ...nodeProgress,
+            [nodeId]: { ...p, finalQuestionVerdict: verdict },
+          },
+        });
+      },
+
+      unlockNextNode: (nodeId) => {
+        const { world, nodeProgress } = get();
+        if (!world) return;
+        // 深拷贝 progress，避免直接 mutate 原对象
+        const progress: Record<string, NodeProgress> = {};
+        for (const k of Object.keys(nodeProgress)) {
+          progress[k] = { ...nodeProgress[k] };
+        }
+        afterNodeCompleted(nodeId, "what", world, progress);
+        set({
+          nodeProgress: progress,
+          fogPercentage: calcFogPercentage(world, progress),
+        });
+      },
+
       switchDepth: (depth) => {
         const { currentDepth } = get();
         if (depth === currentDepth) return;
@@ -209,11 +249,42 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           return null;
         }
 
-        // 重建 nodeProgress：以初始进度为底，仅根据后端状态恢复"当前节点"
-        // 后端 /status 只返回当前节点的状态，其他节点保持初始（只有 startNode 的 what 可用）
+        // 重建 nodeProgress：以初始进度为底
         const progress = buildInitialProgress(world);
         const LAYER_ORDER = ["what", "how", "why", "system"] as const;
 
+        // 1) 先恢复历史节点：根据 nodeHistory 标记每个已完成节点的各层状态
+        for (const h of status.nodeHistory) {
+          const p = progress[h.frontendNodeId];
+          if (!p) continue;
+          // what 层：能进入 how 说明 what 已完成
+          if (h.completedLayers.length > 0) {
+            p.what = "completed";
+            p.introScene = "seen";
+          }
+          // 按层顺序标记 completed
+          for (const layer of h.completedLayers) {
+            if (layer === "how" || layer === "why" || layer === "system") {
+              p[layer] = "completed";
+            }
+          }
+          // 节点全部完成 → 终问状态
+          if (h.nodeCompleted) {
+            p.system = "completed";
+            p.finalQuestionVerdict = h.finalQuestionVerdict || "";
+            if (h.finalQuestionCompleted) {
+              // 终问通过 → completed，解锁下一节点
+              p.finalQuestion = "completed";
+              p.nodeClear = true;
+              afterNodeCompleted(h.frontendNodeId, "what", world, progress);
+            } else {
+              // 终问未通过或未作答 → available，下次点开仍显示终问
+              p.finalQuestion = "available";
+            }
+          }
+        }
+
+        // 2) 恢复当前节点（若与历史中某个节点相同，下面会覆盖更新为"进行中"状态）
         if (status.frontendNodeId && status.currentLayer) {
           const cur = progress[status.frontendNodeId];
           if (cur) {
@@ -225,6 +296,8 @@ export const useWorldStore = create<WorldState & WorldActions>()(
             if (layerIdx >= 3) cur.why = "completed";
             // 当前层本身视作 available（进行中）
             cur[status.currentLayer] = "available";
+            // 已进入 how 层及之后，说明 what 层动画早已看过，标记 seen 避免刷新后重播
+            if (layerIdx >= 1) cur.introScene = "seen";
           }
           // 节点全部完成：当前节点 system completed + finalQuestion 开启
           if (status.nodeCompleted && cur) {
@@ -233,15 +306,30 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           }
         }
 
-        // currentDepth：有节点则跳到当前层，否则 what
-        const depth: LayerType = status.currentLayer ?? "what";
-        const start = world.scholarStartByDepth[depth];
+        // currentDepth：节点全部完成时回到 what 层（由 NPC 触发 finalQuestion），
+        // 否则跳到当前层，无节点则 what
+        const depth: LayerType = status.nodeCompleted
+          ? "what"
+          : (status.currentLayer ?? "what");
+
+        // 学徒位置：若有当前节点，放到节点旁边（与 handleNodeClick 的偏移一致）；
+        // 否则用该层起始点
+        let scholarPos = { ...world.scholarStartByDepth[depth] };
+        if (status.frontendNodeId) {
+          const cur = world.nodes.find((n) => n.id === status.frontendNodeId);
+          if (cur) {
+            const np = cur.positions[depth];
+            if (np) {
+              scholarPos = { x: np.x - 100, y: np.y + 30 };
+            }
+          }
+        }
 
         set({
           nodeProgress: progress,
           currentDepth: depth,
           fogPercentage: calcFogPercentage(world, progress),
-          scholarPos: { x: start.x, y: start.y },
+          scholarPos,
         });
 
         return status;

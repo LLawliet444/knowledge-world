@@ -2,6 +2,7 @@ import json
 import logging
 import logging.handlers
 import pathlib
+from datetime import timezone, timedelta
 
 import structlog
 
@@ -10,6 +11,9 @@ from app.core.trace import get_trace_id
 _LOG_DIR = pathlib.Path(__file__).parent.parent / "logs"
 _LOG_DIR.mkdir(exist_ok=True)
 
+# 上海时区 UTC+8
+_SHANGHAI_TZ = timezone(timedelta(hours=8))
+
 
 def _inject_trace_id(_, __, event_dict):
     """注入当前请求的 trace_id（ContextVar 已在中间件层设置）"""
@@ -17,10 +21,22 @@ def _inject_trace_id(_, __, event_dict):
     return event_dict
 
 
+def _shanghai_timestamp(_logger, _name, event_dict):
+    """注入上海时区的 ISO 时间戳（替代 structlog 默认的 UTC TimeStamper）"""
+    from datetime import datetime
+
+    event_dict.setdefault(
+        "timestamp", datetime.now(_SHANGHAI_TZ).isoformat(timespec="microseconds")
+    )
+    return event_dict
+
+
 class JsonFormatter(logging.Formatter):
     """把 stdlib LogRecord 格式化为 JSONL（每行一个 JSON 对象）"""
 
     def format(self, record: logging.LogRecord) -> str:
+        from datetime import datetime
+
         msg = record.getMessage()
         try:
             data = json.loads(msg)
@@ -31,7 +47,10 @@ class JsonFormatter(logging.Formatter):
 
         data.setdefault("level", record.levelname.lower())
         data.setdefault("logger", record.name)
-        data.setdefault("timestamp", self.formatTime(record, "%Y-%m-%dT%H:%M:%S.%fZ"))
+        # 用上海时区时间戳替代默认的 UTC formatTime
+        data.setdefault(
+            "timestamp", datetime.now(_SHANGHAI_TZ).isoformat(timespec="microseconds")
+        )
         return json.dumps(data, ensure_ascii=False)
 
 
@@ -42,7 +61,7 @@ def setup_logging() -> None:
             structlog.stdlib.filter_by_level,
             structlog.stdlib.add_log_level,
             _inject_trace_id,
-            structlog.processors.TimeStamper(fmt="iso"),
+            _shanghai_timestamp,
             structlog.processors.JSONRenderer(ensure_ascii=False),
         ],
         context_class=dict,

@@ -21,6 +21,8 @@ export interface NodeProgress {
   introScene: "unseen" | "seen";
   readyChoice?: "definition" | "example" | "bridge";
   finalQuestion: "locked" | "available" | "completed";
+  /** 终问最近一次评价：correct / partial / incorrect / ""（未作答） */
+  finalQuestionVerdict: "correct" | "partial" | "incorrect" | "";
   nodeClear: boolean;
 }
 
@@ -36,6 +38,7 @@ export function buildInitialProgress(world: World): Record<string, NodeProgress>
       system: "locked",
       introScene: "unseen",
       finalQuestion: "locked",
+      finalQuestionVerdict: "",
       nodeClear: false,
     };
   }

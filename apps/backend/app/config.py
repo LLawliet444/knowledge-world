@@ -8,12 +8,8 @@ class Settings(BaseSettings):
     openai_base_url: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
-    llm_temperature: float = 0.7
-    llm_provider: str = "openai"
-
-    max_answer_length: int = 1000
-    llm_timeout_seconds: int = 60
-    llm_retry_times: int = 2
+    llm_timeout_seconds: int = 30
+    llm_retry_times: int = 1
 
     # Redis 配置
     redis_url: str = "redis://localhost:6379/0"
@@ -23,6 +19,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # 忽略 .env 中未定义的额外字段（如遗留的 LLM_TEMPERATURE）
 
 
 settings = Settings()

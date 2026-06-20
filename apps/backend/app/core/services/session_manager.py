@@ -87,6 +87,11 @@ class SessionManager:
         state = _load_session(session_id)
         if state is None:
             raise ValueError(f"Session {session_id} not found")
+
+        # 切换节点前：若当前节点已完成，归档到 node_history
+        if state.node_id and state.node_completed:
+            self._archive_current_node(state)
+
         state.node_id = node_id
         state.current_layer = "how"
         state.current_round = 0
@@ -94,6 +99,8 @@ class SessionManager:
         state.layer_summaries = {}
         state.compressed_summary = ""
         state.node_completed = False
+        state.final_question_completed = False
+        state.final_question_verdict = ""
         state.last_ai_question = ""
         state.last_user_answer = ""
         _save_session(state)
@@ -105,6 +112,27 @@ class SessionManager:
             start_layer="how",
         )
         return state
+
+    @staticmethod
+    def _archive_current_node(state: SessionState) -> None:
+        """把当前已完成节点归档到 node_history（去重：同 node_id 只保留最新一条）"""
+        if not state.node_id:
+            return
+        # 已完成的层 = layer_summaries 的 key（advance_layer 时写入）
+        completed_layers = list(state.layer_summaries.keys())
+        entry = {
+            "node_id": state.node_id,
+            "completed_layers": completed_layers,
+            "layer_summaries": dict(state.layer_summaries),
+            "node_completed": state.node_completed,
+            "final_question_completed": state.final_question_completed,
+            "final_question_verdict": state.final_question_verdict,
+        }
+        # 去重：移除同 node_id 的旧记录，追加新记录
+        state.node_history = [
+            h for h in state.node_history if h.get("node_id") != state.node_id
+        ]
+        state.node_history.append(entry)
 
     def record_answer(
         self, session_id: str, user_input: str
@@ -155,6 +183,7 @@ class SessionManager:
             state.compressed_summary = ""
             state.last_ai_question = ""
             state.last_user_answer = ""
+            state.layer_signals = {}
             _save_session(state)
             logger.info(
                 "layer_advanced",
@@ -166,14 +195,6 @@ class SessionManager:
                 prev_summary=summary,
             )
         return state
-
-    def update_last_ai_question(self, session_id: str, question: str) -> None:
-        """更新最后一次 AI 问题缓存（enter_node 首问 / answer 追问后调用）"""
-        state = _load_session(session_id)
-        if state is None:
-            return
-        state.last_ai_question = question
-        _save_session(state)
 
     def save(self, state: SessionState) -> None:
         """显式保存 session 状态

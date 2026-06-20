@@ -10,7 +10,7 @@
 2. [健康检查](#2-健康检查)
 3. [创建学习会话](#3-创建学习会话)
 4. [获取会话状态](#4-获取会话状态)
-5. [进入节点](#5-进入节点)
+5. [获取节点问题](#5-获取节点问题)
 6. [提交回答](#6-提交回答)
 7. [状态机流转说明](#7-状态机流转说明)
 8. [数据模型](#8-数据模型)
@@ -48,7 +48,7 @@ http://localhost:8000
 
 ```text
 Step 1: POST /sessions            → 创建会话，拿到 session_id
-Step 2: POST /sessions/{id}/nodes/{nid}/enter  → 进入节点，返回 how 层第一轮教学
+Step 2: POST /sessions/{id}/nodes/{nid}/enter  → 获取节点问题（新建=how首问 / 恢复=当前层最后AI消息）
 Step 3: POST /sessions/{id}/nodes/{nid}/answer  → 用户回答，返回下一轮引导（循环）
 Step 4: GET  /sessions/{id}/status  → 刷新页面后恢复对话状态
 
@@ -206,11 +206,17 @@ curl http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/status
 
 ---
 
-## 5. 进入节点
+## 5. 获取节点问题
 
 ### POST /api/v1/sessions/{session_id}/nodes/{node_id}/enter
 
-前端完成 What 层后调用。后端加载该节点知识范围（Node Scope），初始化状态机，返回 How 层第一轮教学内容。
+获取节点当前要展示的问题。前端每次进入节点 UI（how / why / system 任意层）都调用此接口，后端根据 Redis 中的状态自动判断是新建还是恢复：
+
+- **首次进入 / 换节点**：重置状态机到 how 层，调用 LLM 生成 how 首问，存入对话历史
+- **同节点恢复**：读 Redis 当前层，**不调用 LLM**，直接返回对话历史里最后一条 AI 消息
+- **节点已完成**：返回 409
+
+该接口是幂等的，可安全重复调用，不会丢失进度也不会重复消耗 LLM。
 
 **路径参数**：
 
@@ -235,16 +241,16 @@ curl http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/status
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `current_layer` | string | 当前层，固定为 `"how"` |
-| `layer_index` | int | 层索引，`0` = how |
+| `current_layer` | string | 当前层：`"how"` / `"why"` / `"system"`（取决于 Redis 中的进度） |
+| `layer_index` | int | 层索引：`0` = how, `1` = why, `2` = system |
 | `total_layers` | int | 总层数，固定 `3` |
 | `teaching_content` | object | 教学内容 |
-| `teaching_content.format` | string | 格式：`"guided_question"` |
-| `teaching_content.opening` | string | 开场引导语 |
-| `teaching_content.core_question` | string | 核心问题 |
-| `teaching_content.thinking_directions` | string[] | 3 个思考方向 |
-| `teaching_content.content` | null \| string | how 层为 null；why/system 层为文本 |
-| `evaluation` | null | 首次进入不评估，固定为 `null` |
+| `teaching_content.format` | string | 格式：how 层为 `"guided_question"`；why/system 层为 `"essence"` / `"model"` |
+| `teaching_content.opening` | string \| null | 开场引导语（仅新建 how 首问时有值；恢复时为 null） |
+| `teaching_content.core_question` | string \| null | 核心问题（仅新建 how 首问时有值；恢复时为 null） |
+| `teaching_content.thinking_direction` | string \| null | 思考方向（仅新建 how 首问时有值；恢复时为 null） |
+| `teaching_content.content` | string \| null | why/system 层文本内容；恢复时（任意层）存放对话历史里最后一条 AI 消息 |
+| `evaluation` | null | 固定为 `null`（评估在 answer 接口返回） |
 
 **请求示例**：
 
@@ -252,7 +258,7 @@ curl http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/status
 curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/nodes/n001/enter
 ```
 
-**响应示例**：
+**响应示例 A — 首次进入节点（新建，how 层）**：
 
 ```json
 {
@@ -263,16 +269,32 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/nodes/n001/
     "format": "guided_question",
     "opening": "欢迎来到这一层，我们将探讨智人如何通过虚构故事实现大规模协作。",
     "core_question": "虚构故事是如何让陌生人之间产生信任的？",
-    "thinking_directions": [
-      "想象一个原始部落，他们通过共同的神话和传说来团结，你能描述这种团结如何产生信任吗？",
-      "现代社会中，法律和货币也是虚构故事——为什么陌生人会相信法律和货币的价值？",
-      "对比一下，如果一群陌生人没有共同的虚构故事，他们为什么很难合作？"
-    ],
+    "thinking_direction": "想象一个原始部落，他们通过共同的神话和传说来团结，你能描述这种团结如何产生信任吗？",
     "content": null
   },
   "evaluation": null
 }
 ```
+
+**响应示例 B — 同节点恢复（已到 system 层，不调 LLM）**：
+
+```json
+{
+  "current_layer": "system",
+  "layer_index": 2,
+  "total_layers": 3,
+  "teaching_content": {
+    "format": "model",
+    "opening": null,
+    "core_question": null,
+    "thinking_direction": null,
+    "content": "现在让我们把前面的推导整合起来，构建一个完整的认知模型……"
+  },
+  "evaluation": null
+}
+```
+
+> **注意**：恢复场景下 `teaching_content` 只用 `content` 字段返回对话历史里最后一条 AI 消息，`opening` / `core_question` / `thinking_direction` 均为 null（结构化字段无法从历史文本还原）。前端用 `content` 渲染即可。
 
 **错误**：
 
@@ -313,7 +335,7 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3d4e5f6/nodes/n001/
 | `teaching_content.format` | string | 格式：`"guided_question"` / `"essence"` / `"model"` |
 | `teaching_content.opening` | string \| null | how 层有值；why/system 层为 null |
 | `teaching_content.core_question` | string \| null | how 层有值；why/system 层为 null |
-| `teaching_content.thinking_directions` | string[] \| null | how 层有值；why/system 层为 null |
+| `teaching_content.thinking_direction` | string \| null | how 层有值；why/system 层为 null |
 | `teaching_content.content` | string \| null | why/system 层有值；how 层为 null |
 | `evaluation` | object \| null | 评估结果（轮次 < 3 时为 null） |
 | `evaluation.can_advance` | bool | 是否可以推进到下一层 |
@@ -343,11 +365,7 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
     "format": "guided_question",
     "opening": "「更聪明」是一个直觉判断，但我们需要更精确地分析。",
     "core_question": "如果仅仅是因为更聪明，那为什么黑猩猩、海豚、大象这些同样聪明的动物，没有建立起城市和国家？",
-    "thinking_directions": [
-      "比较人类和这些聪明动物在群体规模上的差异",
-      "思考个体智力与群体协作能力之间的关系",
-      "想想除了智力之外，还有什么能力是人类独有的"
-    ],
+    "thinking_direction": "比较人类和这些聪明动物在群体规模上的差异，想想除了智力之外还有什么能力是人类独有的。",
     "content": null
   },
   "evaluation": null
@@ -422,7 +440,7 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
 
 | 层 | 认知目标 | System Prompt 结构 | 输出 format | 结构化字段 |
 |---|---|---|---|---|
-| **how** | 机制理解 | 苏格拉底式提问，引导用户推导机制 | `"guided_question"` | `opening` / `core_question` / `thinking_directions` |
+| **how** | 机制理解 | 苏格拉底式提问，引导用户推导机制 | `"guided_question"` | `opening` / `core_question` / `thinking_direction` |
 | **why** | 本质抽象 | 提炼 1-3 个跨场景规律 + 关键追问 | `"essence"` | `content` |
 | **system** | 体系建模 | 整合前三层为结构化模型 | `"model"` | `content` |
 
@@ -432,7 +450,7 @@ curl -X POST http://localhost:8000/api/v1/sessions/sess_a1b2c3/nodes/n001/answer
 what(前端) ──enter──→ how ──(3+ 轮 + 评估通过)──→ why ──(通过)──→ system ──(通过)──→ 完成
 ```
 
-- **进入节点**时默认进入 how 层
+- **enter 接口**幂等：首次进入/换节点→新建 how；同节点→恢复当前层（读 Redis，不调 LLM）
 - 每层**至少满 3 轮**后才触发 LLM 评估
 - LLM 的 `evaluation.can_advance = true` → 自动推进到下一层
 - 推进时，LLM 产出的 `summary`（≤60 字）自动传递给下一层作为「前层总结」
@@ -464,7 +482,7 @@ system 层 prompt 注入前两层 summary
 interface TeachingContent {
   /**
    * 内容格式：
-   * - "guided_question" (how 层)：使用 opening / core_question / thinking_directions
+   * - "guided_question" (how 层)：使用 opening / core_question / thinking_direction
    * - "essence"         (why 层)：使用 content
    * - "model"           (system 层)：使用 content
    */
@@ -476,8 +494,8 @@ interface TeachingContent {
   /** how 层：核心问题；why/system 层：null */
   core_question: string | null;
 
-  /** how 层：3 个思考方向；why/system 层：null */
-  thinking_directions: string[] | null;
+  /** how 层：1 个思考方向；why/system 层：null */
+  thinking_direction: string | null;
 
   /** why/system 层：教学内容文本；how 层：null */
   content: string | null;
@@ -486,7 +504,7 @@ interface TeachingContent {
 
 **前端渲染建议**：
 
-- `format === "guided_question"`：渲染为「开场语 + 核心问题 + 思考方向列表」
+- `format === "guided_question"`：渲染为「开场语 + 核心问题 + 思考方向」
 - `format === "essence"` / `"model"`：直接渲染 `content` 文本（可按 `\n\n` 分段）
 
 ### 8.2 Evaluation
@@ -611,13 +629,17 @@ BASE = "http://localhost:8000"
 # 1. 创建会话
 sid = httpx.post(f"{BASE}/api/v1/sessions").json()["session_id"]
 
-# 2. 进入节点（认知革命）— how 层返回结构化字段
+# 2. 获取节点问题（认知革命）— 首次进入返回 how 层结构化字段
 r = httpx.post(f"{BASE}/api/v1/sessions/{sid}/nodes/n001/enter")
 tc = r.json()["teaching_content"]
-print(tc["opening"])
-print(tc["core_question"])
-for d in tc["thinking_directions"]:
-    print(f"  - {d}")
+if tc["content"]:
+    # 恢复场景：直接用 content
+    print(tc["content"])
+else:
+    # 新建场景：how 层结构化字段
+    print(tc["opening"])
+    print(tc["core_question"])
+    print(f"  - {tc['thinking_direction']}")
 
 # 3. 三轮问答
 for i in range(3):

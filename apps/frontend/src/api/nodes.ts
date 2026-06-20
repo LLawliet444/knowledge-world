@@ -13,6 +13,7 @@ import type {
   SessionResponse,
   EnterNodeResponse,
   AnswerResponse,
+  FinalAnswerResponse,
   SessionStatusResponse,
 } from "../types/feedback";
 
@@ -56,14 +57,12 @@ const ENTER_FALLBACK: EnterNodeResponse = {
     format: "guided_question",
     opening: "欢迎来到这一层，让我们一起来推导这个知识点背后的运行机制。",
     core_question: "用你自己的话解释一下，你是怎么理解这个知识点的？",
-    thinking_directions: [
-      "回顾一下这个知识点的核心事实",
-      "它背后的运行机制是什么？",
-      "它和我们已经知道的其他知识有什么联系？",
-    ],
+    thinking_direction: "回顾一下这个知识点的核心事实，再想想它背后的运行机制。",
     content: null,
   },
   evaluation: null,
+  dialogue_history: [],
+  compressed_summary: "",
 };
 
 const ANSWER_FALLBACK: AnswerResponse = {
@@ -78,11 +77,7 @@ const ANSWER_FALLBACK: AnswerResponse = {
     format: "guided_question",
     opening: "听起来有几分道理，我们再深入想想。",
     core_question: "这个机制在不同的场景下会有什么不同的表现？",
-    thinking_directions: [
-      "换一个场景套用一下这个机制",
-      "想想有没有反例",
-      "它依赖哪些前提条件？",
-    ],
+    thinking_direction: "换一个场景套用一下这个机制，想想它依赖哪些前提条件。",
     content: null,
   },
   evaluation: null,
@@ -127,6 +122,32 @@ export async function answerNode(
   );
 }
 
+// ── 原问回响 ─────────────────────────────────────────────────────────────
+// POST /sessions/{id}/nodes/{node_id}/final-answer
+// system 层全通后，用户回到 what 层回答 NPC 的原始问题
+
+const FINAL_ANSWER_FALLBACK: FinalAnswerResponse = {
+  session_id: "",
+  node_id: "",
+  verdict: "partial",
+  comment: "你的回答我收到了。经过四层探索，你已经有了自己的理解。这个节点的探索完成了。",
+  node_completed: true,
+};
+
+export async function finalAnswer(
+  sessionId: string,
+  frontendNodeId: string,
+  userInput: string,
+): Promise<FinalAnswerResponse> {
+  const backendId = mapNodeId(frontendNodeId);
+  return apiFetch<FinalAnswerResponse>(
+    `/api/v1/sessions/${sessionId}/nodes/${backendId}/final-answer`,
+    { user_input: userInput },
+    FINAL_ANSWER_FALLBACK,
+    30000,
+  );
+}
+
 // ── 会话状态恢复 ─────────────────────────────────────────────────────────
 // GET /sessions/{id}/status：刷新页面后从后端 Redis 恢复会话状态
 
@@ -138,7 +159,23 @@ const STATUS_FALLBACK: SessionStatusResponse = {
   node_completed: false,
   last_ai_question: "",
   last_user_answer: "",
+  node_history: [],
 };
+
+export interface NodeHistoryItem {
+  /** 前端节点 ID（已反向映射） */
+  frontendNodeId: string;
+  /** 已完成的层（如 ["how","why","system"]） */
+  completedLayers: string[];
+  /** 每层的压缩摘要 */
+  layerSummaries: Record<string, string>;
+  /** 节点四层是否全部完成 */
+  nodeCompleted: boolean;
+  /** 原问回响（终问）是否完成（仅 verdict=correct 时为 true） */
+  finalQuestionCompleted: boolean;
+  /** 终问最近一次评价：correct / partial / incorrect / ""（未作答） */
+  finalQuestionVerdict: "correct" | "partial" | "incorrect" | "";
+}
 
 export interface SessionStatus {
   /** 前端节点 ID；未进入节点时为 null */
@@ -153,6 +190,8 @@ export interface SessionStatus {
   lastAiQuestion: string;
   /** 最后一次用户回答 */
   lastUserAnswer: string;
+  /** 已完成节点的历史归档（含当前节点若已完成） */
+  nodeHistory: NodeHistoryItem[];
 }
 
 /**
@@ -179,6 +218,14 @@ export async function getSessionStatus(
       nodeCompleted: res.node_completed,
       lastAiQuestion: res.last_ai_question,
       lastUserAnswer: res.last_user_answer,
+      nodeHistory: (res.node_history ?? []).map((h) => ({
+        frontendNodeId: unmapNodeId(h.node_id),
+        completedLayers: h.completed_layers ?? [],
+        layerSummaries: h.layer_summaries ?? {},
+        nodeCompleted: h.node_completed ?? false,
+        finalQuestionCompleted: h.final_question_completed ?? false,
+        finalQuestionVerdict: (h.final_question_verdict ?? "") as NodeHistoryItem["finalQuestionVerdict"],
+      })),
     };
   } catch {
     return null;

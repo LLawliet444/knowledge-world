@@ -9,7 +9,7 @@
  *   - 最后一句结束后调用 onComplete
  */
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── 场景静态配置 ──────────────────────────────────────────────────────────
 interface SceneConfig {
@@ -111,7 +111,7 @@ const SCENES: Record<number, SceneConfig> = {
   },
   7: {
     sceneId: "s7",
-    bg: "/video_background/screen_7_background.jpg",
+    bg: "/video_background/screen_7_background.png",
     speaker: "观星者",
     script: [
       "（这里记载了先祖们关于星空的全部答案，但每一行都写满了对未知的傲慢。）",
@@ -193,13 +193,13 @@ const ScenePlayer: React.FC<ScenePlayerProps> = ({ sceneIndex, onComplete }) => 
     particleTimers.current.push(t);
   }, [config.sceneId]);
 
-  // 粒子系统：场景 2 汗水
+  // 粒子系统：场景 2 汗水（从 NPC 头部滴落，NPC 位于 right:8%/bottom:30%，120×120）
   const spawnSweat = useCallback(() => {
     if (!particleContainerRef.current) return;
     const p = document.createElement("div");
     p.className = `${config.sceneId}-sweat`;
-    p.style.left = `${23 + Math.random() * 3}%`;
-    p.style.top = `${40 + Math.random() * 4}%`;
+    p.style.left = `${74 + Math.random() * 5}%`;
+    p.style.top = `${48 + Math.random() * 4}%`;
     const dur = 0.8 + Math.random() * 0.5;
     p.style.animationDuration = `${dur}s`;
     particleContainerRef.current.appendChild(p);
@@ -450,7 +450,7 @@ const ScenePlayer: React.FC<ScenePlayerProps> = ({ sceneIndex, onComplete }) => 
           position: absolute;
           width: 3px; height: 5px;
           background-color: #aae2ff;
-          z-index: 6;
+          z-index: 102;
           animation: ${sid}-sweat-drop 1.2s cubic-bezier(0.6, -0.28, 0.735, 0.045) infinite;
         }
         @keyframes ${sid}-sweat-drop {
@@ -689,7 +689,7 @@ const ScenePlayer: React.FC<ScenePlayerProps> = ({ sceneIndex, onComplete }) => 
           />
         )}
 
-        {/* 场景 2 粒子容器 */}
+        {/* 场景 2 粒子容器（z-index 高于角色层 101，确保汗水在 NPC 之上） */}
         {(sceneIndex === 2 || sceneIndex === 3 || sceneIndex === 6) && (
           <div
             ref={particleContainerRef}
@@ -699,7 +699,7 @@ const ScenePlayer: React.FC<ScenePlayerProps> = ({ sceneIndex, onComplete }) => 
               height: "100%",
               top: 0,
               left: 0,
-              zIndex: 4,
+              zIndex: 110,
               pointerEvents: "none",
             }}
           />

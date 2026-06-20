@@ -15,6 +15,7 @@ import { getVisibleNodes } from "../../utils/depthGate";
 import { preloadPixiTextures } from "../../utils/preloadTextures";
 
 import { DepthBackground } from "./DepthBackground";
+import { DepthTransitionVideo, getTransitionVideoUrl } from "./DepthTransitionVideo";
 import { FogLayer } from "./FogLayer";
 import NodeSprite from "./NodeSprite";
 import ScholarSprite from "./ScholarSprite";
@@ -44,6 +45,14 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
 
   const { open } = useDialogStore();
 
+  // 层切换过渡视频：切换期间 currentDepth 仍是来源层、switchingTargetDepth 是目标层。
+  // 仅当 from→to 存在对应视频时启用视频过渡（what→how / how→why / why→system）。
+  const transitionVideoUrl =
+    isSwitchingDepth && switchingTargetDepth
+      ? getTransitionVideoUrl(currentDepth, switchingTargetDepth)
+      : undefined;
+  const isVideoTransition = !!transitionVideoUrl;
+
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [isWalking, setIsWalking] = useState(false);
   const [scholarDir, setScholarDir] = useState<"idle" | "left" | "right" | "up" | "down">("idle");
@@ -69,6 +78,13 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   }, []);
 
   const posProxy = useRef({ x: scholarPos.x, y: scholarPos.y });
+
+  // scholarPos 变化时（如 restoreSession 恢复到当前节点旁）同步 posProxy，
+  // 否则点击节点时 gsap 会从旧的 posProxy 位置开始走
+  useEffect(() => {
+    posProxy.current.x = scholarPos.x;
+    posProxy.current.y = scholarPos.y;
+  }, [scholarPos.x, scholarPos.y]);
 
   // 当前深度的节点坐标辅助函数
   const nodePos = (n: WorldNode) => n.positions[currentDepth];
@@ -183,10 +199,13 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
   );
 
   const handleDepthSwitchComplete = useCallback(
-    (depth: typeof currentDepth) => {
+    (_depth: typeof currentDepth) => {
+      // 视频过渡时由 DepthTransitionVideo 负责调 finishDepthSwitch，
+      // 这里（DepthBackground 的溶解回调）不重复触发，避免提前结束视频。
+      if (isVideoTransition) return;
       finishDepthSwitch();
     },
-    [finishDepthSwitch],
+    [isVideoTransition, finishDepthSwitch],
   );
 
   const handleSceneComplete = useCallback(() => {
@@ -409,6 +428,15 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
         wrapUp={introGuideData.wrapUp}
         onComplete={handleIntroGuideComplete}
         onSkip={handleIntroGuideSkip}
+      />
+    )}
+
+    {/* 层切换过渡视频：全屏播放，播完后进入下一层地图 */}
+    {isVideoTransition && switchingTargetDepth && (
+      <DepthTransitionVideo
+        fromDepth={currentDepth}
+        toDepth={switchingTargetDepth}
+        onComplete={finishDepthSwitch}
       />
     )}
     </>

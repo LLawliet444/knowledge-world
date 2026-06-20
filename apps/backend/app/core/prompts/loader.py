@@ -21,3 +21,7 @@ def load_system_layer_prompt() -> str:
 
 def load_evaluation_prompt() -> str:
     return _read("evaluation.md")
+
+
+def load_final_answer_prompt() -> str:
+    return _read("final_answer.md")

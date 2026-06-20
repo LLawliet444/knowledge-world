@@ -27,8 +27,8 @@ export const sapiensWorld: World = {
         avatar: "/nodes/npc_storyteller.png",
       },
       positions: { what: { x: 500, y: 820 }, how: { x: 500, y: 820 }, why: { x: 500, y: 820 }, system: { x: 500, y: 820 } },
-      neighbors: ["n_fire_ctrl"],
-      nextDiscoveryId: "n_fire_ctrl",
+      neighbors: ["n_agri_rev"],
+      nextDiscoveryId: "n_agri_rev",
       sourceExcerpt:
         "约七万年前，智人开始拥有虚构故事的能力。这使得他们能突破邓巴数字，组织大规模协作。",
       introScene: {
@@ -78,68 +78,7 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 2: 用火控制 ───────────────────────────────────────────────
-    {
-      id: "n_fire_ctrl",
-      name: "用火控制",
-      icon: "/nodes/node_fire.png",
-      iconNpc: "/scenes/cave_fire/gate_npc_1.png",
-      mysteryQuestion: "火为什么改变了人类？",
-      gateNpc: {
-        id: "gate_fire_keeper",
-        title: "持火者",
-        avatar: "/nodes/node_fire.png",
-      },
-      positions: { what: { x: 760, y: 850 }, how: { x: 760, y: 850 }, why: { x: 760, y: 850 }, system: { x: 760, y: 850 } },
-      neighbors: ["n_cog_rev", "n_agri_rev"],
-      nextDiscoveryId: "n_agri_rev",
-      sourceExcerpt:
-        "火让人类熟食、保暖、驱赶猛兽。肠道缩短，大脑获得更多能量，夜间也能活动。",
-      introScene: {
-        sceneText: "篝火边，猎人把刚捕获的肉放在火上炙烤。熟食的香气飘散，远处的黑暗中传来野兽的咆哮。",
-        visualHint: "cave_fire",
-        durationSec: 6,
-        trigger: "first_enter_what",
-        state: "unseen",
-      },
-      whatCards: [
-        {
-          type: "definition",
-          text: "用火控制是指人类学会使用和管理火的技术能力，包括烹饪、取暖和照明。",
-        },
-        {
-          type: "example",
-          text: "烹饪使食物更易消化、杀死寄生虫；火光驱赶猛兽，让人类能在洞穴中安全过夜。",
-        },
-        {
-          type: "bridge",
-          text: "用火让人类获得更多能量，支撑了更大的大脑——为认知革命的智力爆发提供了生理基础。",
-        },
-      ],
-      mentorPrompts: {
-        whatIntro: "火改变了什么？让我们从几个角度看看。",
-        whatDialogue: [
-          { speaker: "scholar", text: "火…不仅仅是取暖和烤肉的工具。我看到他们在火光中传达某种东西，像是在分享一种比语言更古老的默契。" },
-          { speaker: "mentor", text: "你的观察很敏锐。火堆旁诞生的不只是温暖，更是最早的「信息交换站」——它是认知革命的前奏。" },
-        ],
-        whatScrolls: [
-          { type: "definition", title: "用火控制", content: "用火控制是指人类学会使用和管理火的技术能力，包括烹饪、取暖和照明。火让人类熟食、保暖、驱赶猛兽，肠道缩短，大脑获得更多能量，夜间也能活动。这是人类掌握的第一种\u201c外部能源\u201d。", mentorVoice: "第一张卷轴给了我们一个简洁的定义：火是工具，但不仅仅是工具——它是人类第一次学会管理能源。这个能力改变了我们的身体和社会。" },
-          { type: "example", title: "火堆旁的夜晚", content: "在寒冷的夜晚，部落成员围坐在火堆旁。火光照亮了黑暗，驱走了野兽。更重要的是，大家在火光中分享故事、交流信息。火堆成了最早的\u201c社交中心\u201d。", mentorVoice: "第二张卷轴画出了那个温暖的画面：火堆不只是取暖，更是人类最早的社交网络。光把大家聚在一起，语言在火光中流动。" },
-          { type: "bridge", title: "从火到互联网", content: "从篝火到电灯到互联网——人类不断发明新的方式管理能量和信息。火是这一切的起点：它让人类可以控制环境，而不再被动适应环境。", mentorVoice: "最后这张做了一个跨越时空的连接：你今天用的电灯、手机，甚至互联网——底层逻辑和远古人类控制火是一样的：用外部能源扩大能力边界。" },
-        ],
-        whatWrapUp: [
-          { speaker: "scholar", text: "所以火不只是\u201c做饭的工具\u201d，它是人类主动改造世界的第一步……" },
-          { speaker: "mentor", text: "正是。选一张最关键的卷轴吧，它会带我们进入下一层。" },
-        ],
-        how: "火是如何具体改变人类的身体和生活的？",
-        why: "为什么是智人而不是其他动物学会了用火？",
-        system: "从用火到用核能，人类对能源的掌控如何改变了社会结构？",
-        finalReturn: "现在你更理解火的力量了。回到最初的问题：火为什么改变了人类？",
-      },
-      finalQuestion: { source: "mysteryQuestion", state: "locked" },
-    },
-
-    // ── What 3: 农业革命 ──────────────────────────────────────────────
+    // ── What 2: 农业革命 ──────────────────────────────────────────────
     {
       id: "n_agri_rev",
       name: "农业革命",
@@ -152,7 +91,7 @@ export const sapiensWorld: World = {
         avatar: "/nodes/npc_farmer.png",
       },
       positions: { what: { x: 1000, y: 830 }, how: { x: 1000, y: 830 }, why: { x: 1000, y: 830 }, system: { x: 1000, y: 830 } },
-      neighbors: ["n_fire_ctrl", "n_money"],
+      neighbors: ["n_money"],
       nextDiscoveryId: "n_money",
       sourceExcerpt:
         "约一万年前，人类从采集走向农耕。小麦在中东、水稻在东亚同时被驯化。农业带来人口爆炸，但个体幸福未必提升。",

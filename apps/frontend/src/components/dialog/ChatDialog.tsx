@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useWorldStore } from "../../store/worldStore";
-import { createSession, enterNode, answerNode, getSessionStatus } from "../../api/nodes";
+import { createSession, enterNode, answerNode } from "../../api/nodes";
 import { MentorAvatar } from "./MentorAvatar";
 import { ApprenticeAvatar } from "./ApprenticeAvatar";
 import { PixelButton } from "../common/PixelButton";
 import type { WorldNode, LayerType } from "../../types/world";
-import type { TeachingContent } from "../../types/feedback";
+import type { TeachingContent, AnswerResponse } from "../../types/feedback";
 import { LAYER_ORDER } from "../../constants/biome";
 
 /** 计算下一层；system 是最后一层，循环回 what（探索下一个节点） */
@@ -55,16 +55,19 @@ function teachingToText(t: TeachingContent): string {
     const parts: string[] = [];
     if (t.opening) parts.push(t.opening);
     if (t.core_question) parts.push(`【核心问题】\n${t.core_question}`);
-    if (t.thinking_directions && t.thinking_directions.length > 0) {
-      parts.push(
-        "【思考方向】\n" +
-          t.thinking_directions.map((d, i) => `${i + 1}. ${d}`).join("\n"),
-      );
+    if (t.thinking_direction) {
+      parts.push(`【思考方向】\n${t.thinking_direction}`);
     }
     return parts.join("\n\n");
   }
   // essence / model 层直接用 content
   return t.content ?? "";
+}
+
+// 消息 id 递增计数器：替代 Date.now()，彻底避免同毫秒创建导致 React key 重复
+let messageIdSeq = 1;
+function genId(): number {
+  return messageIdSeq++;
 }
 
 export const ChatDialog: React.FC<ChatDialogProps> = ({
@@ -172,11 +175,161 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     return () => clearTimeout(timer);
   }, [pendingSwitch, typingId, messages, onClose, switchDepth]);
 
+  // 处理 answer 接口响应：抽取为共享逻辑，供 handleSend 与 initSession 补提交复用
+  const processAnswerResponse = useCallback((res: AnswerResponse) => {
+    const tcContent = res.teaching_content;
+    const evalResult = res.evaluation;
+
+    if (res.can_advance) {
+      // 原问回响模式：system 全通后回到 what 层解答初始问题，can_advance 即节点通关
+      if (isFinalQuestion) {
+        setFinalQuestion(node.id, "completed");
+        const summaryText = res.layer_summary
+          ? `\n\n${res.layer_summary}\n\n`
+          : "\n\n";
+        const finishMsgs: ChatMessage[] = [
+          {
+            id: genId(),
+            role: "mentor",
+            text: `✅ 你已成功回答了最初的问题！${summaryText}这个节点的探索全部完成了。`,
+            isLayerTransition: true,
+          },
+        ];
+        if (evalResult) {
+          finishMsgs.push({
+            id: genId(),
+            role: "mentor",
+            text: `📋 老学者评估：${evalResult.reason}`,
+            isEvaluation: true,
+          });
+        }
+        setMessages((prev) => [...prev, ...finishMsgs]);
+        setNodeCompleted(true);
+        return;
+      }
+
+      // 用 LAYER_ORDER 计算下一层，不依赖后端 current_layer（可能未推进）
+      // system 是最后一层，can_advance 后循环回 what（回到起点解答初始问题）
+      const targetLayer = nextLayerOf(currentLayer);
+      const isLoopBack = currentLayer === "system" && targetLayer === "what";
+      const oldLayerLabel = LAYER_LABELS[currentLayer] ?? currentLayer;
+      const newLayerLabel = targetLayer
+        ? (LAYER_LABELS[targetLayer] ?? targetLayer)
+        : oldLayerLabel;
+      updateNodeDepthState(node.id, currentLayer as LayerType, "completed");
+      if (targetLayer && !isLoopBack) {
+        updateNodeDepthState(node.id, targetLayer, "available");
+      }
+      if (isLoopBack) {
+        setFinalQuestion(node.id, "available");
+      }
+
+      const summaryText = res.layer_summary
+        ? `\n\n${res.layer_summary}\n\n`
+        : "\n\n";
+      const transitionMsg: ChatMessage = {
+        id: genId(),
+        role: "mentor",
+        text: isLoopBack
+          ? `✅ ${oldLayerLabel} 已通过${summaryText}你已走完四层探索，回到起点。\n\n👉 关闭对话框后，点击地图上的 NPC，用你自己的话回答最初的问题。`
+          : targetLayer
+            ? `✅ ${oldLayerLabel} 已通过${summaryText}现在进入 ${newLayerLabel} 层。`
+            : `✅ ${oldLayerLabel} 已通过${summaryText}`,
+        isLayerTransition: true,
+      };
+
+      const nextMsgs: ChatMessage[] = [transitionMsg];
+      if (evalResult) {
+        nextMsgs.push({
+          id: genId(),
+          role: "mentor",
+          text: `📋 老学者评估：${evalResult.reason}`,
+          isEvaluation: true,
+        });
+      }
+      setMessages((prev) => [...prev, ...nextMsgs]);
+      // can_advance 后只展示 evaluation，不展示 teaching_content；
+      // 新层首轮问题由下次打开对话框时调 enter 接口获取（幂等）
+      if (targetLayer) {
+        setPendingSwitch(targetLayer);
+        setCurrentLayer(targetLayer);
+      }
+    } else if (res.node_completed) {
+      setNodeCompleted(true);
+      updateNodeDepthState(node.id, currentLayer as LayerType, "completed");
+
+      const layerLabel = LAYER_LABELS[currentLayer] ?? currentLayer;
+      const evalMsgs: ChatMessage[] = evalResult
+        ? [
+            {
+              id: genId(),
+              role: "mentor",
+              text: `📋 本层评估（${layerLabel}）\n${evalResult.reason}`,
+              isEvaluation: true,
+              evalReason: evalResult.reason,
+            },
+          ]
+        : [];
+      setMessages((prev) => [
+        ...prev,
+        ...evalMsgs,
+        {
+          id: genId(),
+          role: "mentor",
+          text: "🎉 这个节点的探索已经全部完成了！迷雾散去了一部分——对前一个节点的理解让你看见了相邻的问题。",
+        },
+      ]);
+    } else if (tcContent) {
+      const evalMsgs2: ChatMessage[] = evalResult
+        ? [
+            {
+              id: genId(),
+              role: "mentor",
+              text: `📋 老学者评估：${evalResult.reason}`,
+              isEvaluation: true,
+            },
+          ]
+        : [];
+      setMessages((prev) => [
+        ...prev,
+        ...evalMsgs2,
+        {
+          id: genId(),
+          role: "mentor",
+          text: teachingToText(tcContent),
+          teaching: tc(tcContent),
+        },
+      ]);
+    } else if (evalResult) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: genId(),
+          role: "mentor",
+          text: `📋 老学者评估：${evalResult.reason}`,
+          isEvaluation: true,
+        },
+      ]);
+    }
+  }, [currentLayer, isFinalQuestion, node.id, updateNodeDepthState, setFinalQuestion]);
+
   const initSession = useCallback(async () => {
     if (initRef.current) return;
     initRef.current = true;
     setSubmitting(true);
     try {
+      // isFinalQuestion 模式：不调后端接口（节点已完成），直接显示原始问题
+      if (isFinalQuestion) {
+        setMessages([
+          {
+            id: genId(),
+            role: "mentor",
+            text: `你已走完了认知、机制、本质、体系四层探索。\n\n现在，带着你收获的一切，回到最初的问题：\n\n【原始问题】\n${node.mysteryQuestion}`,
+          },
+        ]);
+        return;
+      }
+
       // 复用 store 中的 sessionId（整个学习旅程共享），没有才新建
       let sid = useWorldStore.getState().sessionId;
       if (!sid) {
@@ -185,53 +338,31 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         setSessionId(sid);
       }
 
-      // 先查后端状态：若当前节点正是本节点且进行中，恢复对话而非重新 enter
-      const status = await getSessionStatus(sid);
-      const isResuming =
-        status &&
-        status.frontendNodeId === node.id &&
-        status.currentLayer === depth &&
-        !status.nodeCompleted;
+      // enter 接口幂等：每次进入节点 UI（how/why/system 任意层）都调，
+      // 后端根据 Redis 状态自动判断新建首问还是恢复完整对话历史。
+      const enterRes = await enterNode(sid, node.id);
+      // enter 返回的 current_layer 现在可信（取决于 Redis 进度），用于显示；
+      // 但前端层切换仍以 props depth 为准（用户当前所在地图层）
+      if (enterRes.current_layer && enterRes.current_layer !== depth) {
+        setCurrentLayer(enterRes.current_layer);
+      }
 
-      if (isResuming && status) {
-        const restored: ChatMessage[] = [];
-        // 恢复最后一条 AI 问题（若有）
-        if (status.lastAiQuestion) {
-          restored.push({
-            id: Date.now(),
-            role: "mentor",
-            text: status.lastAiQuestion,
-          });
-        }
-        // 恢复最后一条用户回答（若有）
-        if (status.lastUserAnswer) {
-          restored.push({
-            id: Date.now() + 1,
-            role: "user",
-            text: status.lastUserAnswer,
-          });
-        }
-        if (restored.length > 0) {
-          setMessages(restored);
-        } else {
-          // 后端有会话但无对话记录：重新 enter 拿首轮教学
-          const enterRes = await enterNode(sid, node.id);
-          setMessages([
-            {
-              id: Date.now(),
-              role: "mentor",
-              text: teachingToText(enterRes.teaching_content),
-              teaching: enterRes.teaching_content,
-            },
-          ]);
-        }
+      // 渲染聊天历史：
+      // - 同节点恢复（dialogue_history 非空）：把完整历史转成 ChatMessage，全部标记 typed（无需打字效果）
+      // - 新进入（dialogue_history 为空）：直接渲染 teaching_content（首问，需要打字效果）
+      if (enterRes.dialogue_history.length > 0) {
+        const historyMsgs: ChatMessage[] = enterRes.dialogue_history.map((m) => ({
+          id: genId(),
+          role: m.role === "ai" ? "mentor" : "user",
+          text: m.content,
+          typed: true,
+        }));
+        setMessages(historyMsgs);
       } else {
-        // 非恢复场景：进入节点
-        const enterRes = await enterNode(sid, node.id);
-        // 不用后端 current_layer（enterNode 固定返回 "how"，不可信），以 props depth 为准
+        // 新进入：只渲染 teaching_content（首问），保留打字效果
         setMessages([
           {
-            id: Date.now(),
+            id: genId(),
             role: "mentor",
             text: teachingToText(enterRes.teaching_content),
             teaching: enterRes.teaching_content,
@@ -241,7 +372,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     } catch {
       setMessages([
         {
-          id: Date.now(),
+          id: genId(),
           role: "mentor",
           text:
             "欢迎来到这一层，让我们一起来推导这个知识点背后的运行机制。\n\n" +
@@ -251,172 +382,54 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     } finally {
       setSubmitting(false);
     }
-  }, [node.id, depth, setSessionId]);
+  }, [node.id, depth, setSessionId, isFinalQuestion, node.mysteryQuestion]);
 
   useEffect(() => {
     initSession();
   }, []);
 
   const handleSend = useCallback(async () => {
-    if (!inputText.trim() || submitting || !sessionId) return;
+    // isFinalQuestion 模式不需要 sessionId（不调后端）
+    if (!inputText.trim() || submitting) return;
+    if (!isFinalQuestion && !sessionId) return;
     const userText = inputText.trim();
     setInputText("");
 
     setMessages((prev) => [
       ...prev,
-      { id: Date.now(), role: "user", text: userText },
+      { id: genId(), role: "user", text: userText },
     ]);
+
+    // isFinalQuestion 模式：不调后端接口，用户回答后直接标记节点完成
+    if (isFinalQuestion) {
+      setSubmitting(true);
+      // 短暂延迟模拟"思考"，让交互更自然
+      await new Promise((r) => setTimeout(r, 800));
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: genId(),
+          role: "mentor",
+          text: `✅ 你已用自己的话回答了最初的问题。\n\n经过四层探索，你的回答已经融合了机制理解、本质洞察和体系迁移。这个节点的探索全部完成了。`,
+          isLayerTransition: true,
+        },
+      ]);
+      setFinalQuestion(node.id, "completed");
+      setNodeCompleted(true);
+      setSubmitting(false);
+      return;
+    }
 
     setSubmitting(true);
 
     try {
-      const res = await answerNode(sessionId, node.id, userText);
-      // 不用后端 current_layer（不可信），以前端 currentLayer + can_advance 推进逻辑为准
-
-      const tcContent = res.teaching_content;
-      const evalResult = res.evaluation;
-
-      if (res.can_advance) {
-        // 原问回响模式：system 全通后回到 what 层解答初始问题，can_advance 即节点通关
-        if (isFinalQuestion) {
-          setFinalQuestion(node.id, "completed");
-          const summaryText = res.layer_summary
-            ? `\n\n${res.layer_summary}\n\n`
-            : "\n\n";
-          const finishMsgs: ChatMessage[] = [
-            {
-              id: Date.now(),
-              role: "mentor",
-              text: `✅ 你已成功回答了最初的问题！${summaryText}这个节点的探索全部完成了。`,
-              isLayerTransition: true,
-            },
-          ];
-          if (evalResult) {
-            finishMsgs.push({
-              id: Date.now() + 1,
-              role: "mentor",
-              text: `📋 老学者评估：${evalResult.reason}`,
-              isEvaluation: true,
-            });
-          }
-          setMessages((prev) => [...prev, ...finishMsgs]);
-          setNodeCompleted(true);
-          return;
-        }
-
-        // 用 LAYER_ORDER 计算下一层，不依赖后端 current_layer（可能未推进）
-        // system 是最后一层，can_advance 后循环回 what（回到起点解答初始问题）
-        const targetLayer = nextLayerOf(currentLayer);
-        const isLoopBack = currentLayer === "system" && targetLayer === "what";
-        const oldLayerLabel = LAYER_LABELS[currentLayer] ?? currentLayer;
-        const newLayerLabel = targetLayer
-          ? (LAYER_LABELS[targetLayer] ?? targetLayer)
-          : oldLayerLabel;
-        // 推进到新层：更新该节点旧层状态为 completed
-        updateNodeDepthState(node.id, currentLayer as LayerType, "completed");
-        // 立即解锁当前节点在新层为 available（不依赖打字完成）
-        // system→what 循环不解锁 what 层（what 已 completed，将由 DialogBox 进入解答模式）
-        if (targetLayer && !isLoopBack) {
-          updateNodeDepthState(node.id, targetLayer, "available");
-        }
-        // system→what 循环：开启原问回响，让用户回到 what 层解答初始问题
-        if (isLoopBack) {
-          setFinalQuestion(node.id, "available");
-        }
-
-        const summaryText = res.layer_summary
-          ? `\n\n${res.layer_summary}\n\n`
-          : "\n\n";
-        const transitionMsg: ChatMessage = {
-          id: Date.now(),
-          role: "mentor",
-          text: isLoopBack
-            ? `✅ ${oldLayerLabel} 已通过${summaryText}你已掌握解答之道，回到起点回答最初的问题。`
-            : targetLayer
-              ? `✅ ${oldLayerLabel} 已通过${summaryText}现在进入 ${newLayerLabel} 层。`
-              : `✅ ${oldLayerLabel} 已通过${summaryText}`,
-          isLayerTransition: true,
-        };
-
-        const nextMsgs: ChatMessage[] = [transitionMsg];
-        // can_advance 后只展示 evaluation 结果，不再展示 teaching 内容
-        if (evalResult) {
-          nextMsgs.push({
-            id: Date.now() + 1,
-            role: "mentor",
-            text: `📋 老学者评估：${evalResult.reason}`,
-            isEvaluation: true,
-          });
-        }
-        setMessages((prev) => [...prev, ...nextMsgs]);
-        // 标记待切换：打字全部完成后延迟跳转地图
-        if (targetLayer) {
-          setPendingSwitch(targetLayer);
-          setCurrentLayer(targetLayer);
-        }
-      } else if (res.node_completed) {
-        setNodeCompleted(true);
-        updateNodeDepthState(node.id, currentLayer as LayerType, "completed");
-
-        const layerLabel = LAYER_LABELS[currentLayer] ?? currentLayer;
-        const evalMsgs: ChatMessage[] = evalResult
-          ? [
-              {
-                id: Date.now(),
-                role: "mentor",
-                text: `📋 本层评估（${layerLabel}）\n${evalResult.reason}`,
-                isEvaluation: true,
-                evalReason: evalResult.reason,
-              },
-            ]
-          : [];
-        setMessages((prev) => [
-          ...prev,
-          ...evalMsgs,
-          {
-            id: Date.now(),
-            role: "mentor",
-            text: "🎉 这个节点的探索已经全部完成了！迷雾散去了一部分——对前一个节点的理解让你看见了相邻的问题。",
-          },
-        ]);
-        return;
-      } else if (tcContent) {
-        const evalMsgs2: ChatMessage[] = evalResult
-          ? [
-              {
-                id: Date.now(),
-                role: "mentor",
-                text: `📋 老学者评估：${evalResult.reason}`,
-                isEvaluation: true,
-              },
-            ]
-          : [];
-        setMessages((prev) => [
-          ...prev,
-          ...evalMsgs2,
-          {
-            id: Date.now(),
-            role: "mentor",
-            text: teachingToText(tcContent),
-            teaching: tc(tcContent),
-          },
-        ]);
-      } else if (evalResult) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            role: "mentor",
-            text: `📋 老学者评估：${evalResult.reason}`,
-            isEvaluation: true,
-          },
-        ]);
-      }
+      const res = await answerNode(sessionId!, node.id, userText);
+      processAnswerResponse(res);
     } catch {
       setMessages((prev) => [
         ...prev,
         {
-          id: Date.now(),
+          id: genId(),
           role: "mentor",
           text: "听起来学到了不少知识。试着换一个角度再想想看？",
         },
@@ -424,7 +437,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     } finally {
       setSubmitting(false);
     }
-  }, [inputText, submitting, sessionId, node.id, currentLayer, updateNodeDepthState, setFinalQuestion, isFinalQuestion]);
+  }, [inputText, submitting, sessionId, node.id, processAnswerResponse, isFinalQuestion, setFinalQuestion]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

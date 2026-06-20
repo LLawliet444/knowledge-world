@@ -17,6 +17,8 @@ import { useDialogStore, type MentorDialogueLine } from "../../store/dialogStore
 import { useWorldStore } from "../../store/worldStore";
 import { WhatCards } from "./WhatCards";
 import { ChatDialog } from "./ChatDialog";
+import { FinalQuestionDialog } from "./FinalQuestionDialog";
+import { NodeMemorialDialog } from "./NodeMemorialDialog";
 import { ScholarLoading } from "./ScholarLoading";
 import type { WhatCard } from "../../types/world";
 
@@ -34,10 +36,12 @@ export const DialogBox: React.FC = () => {
 
   const { updateNodeDepthState, nodeProgress } = useWorldStore();
 
-  // 原问回响：system 全通后回到 what 层解答初始问题，走 ChatDialog 而非翻卡
-  const isFinalQuestion =
-    !!currentNode &&
-    nodeProgress?.[currentNode.id]?.finalQuestion === "available";
+  // 原问回响 / 通关纪念：system 全通后的 what 层分支
+  // - available：终问待回答或未通过，走 FinalQuestionDialog
+  // - completed：终问已通过（verdict=correct），走 NodeMemorialDialog（不再提问）
+  const fqState = currentNode ? nodeProgress?.[currentNode.id]?.finalQuestion : undefined;
+  const isFinalQuestion = fqState === "available" || fqState === "completed";
+  const isNodeMemorial = fqState === "completed";
 
   // mentor_intro 阶段：当前对话行索引
   const [mentorLineIdx, setMentorLineIdx] = useState(0);
@@ -91,12 +95,14 @@ export const DialogBox: React.FC = () => {
 
   // ── 打开节点后，根据深度进入不同阶段 ──────────────────────
   useEffect(() => {
+    // isFinalQuestion 模式走 ChatDialog，不需要构建 mentor_intro
+    if (isFinalQuestion) return;
     if (!currentNode || phase !== "loading" || depth !== "what") return;
 
     // 构建引导对话，进入 mentor_intro 阶段
     const lines = buildMentorLines(currentNode.whatCards, currentNode.mentorPrompts.whatIntro);
     setMentorIntro(lines);
-  }, [currentNode?.id, phase, depth]);
+  }, [currentNode?.id, phase, depth, isFinalQuestion]);
 
   // mentor_intro 阶段：点击推进对话
   const handleMentorClick = useCallback(() => {
@@ -194,7 +200,7 @@ export const DialogBox: React.FC = () => {
     <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4 pointer-events-none">
       <div className="pointer-events-auto w-full max-w-5xl relative mt-6" style={boardStyle}>
         <div style={titleRibbonStyle}>
-          📜 {currentNode.gateNpc.title} · {depthLabel}
+          📜 {currentNode.gateNpc.title} · {isNodeMemorial ? "通关纪念" : isFinalQuestion ? "原问回响" : depthLabel}
         </div>
         <div style={goldInnerFrameStyle} />
 
@@ -353,6 +359,10 @@ export const DialogBox: React.FC = () => {
               )}
             </div>
           </div>
+        ) : isNodeMemorial ? (
+          <NodeMemorialDialog node={currentNode} onClose={close} />
+        ) : isFinalQuestion ? (
+          <FinalQuestionDialog node={currentNode} onClose={close} />
         ) : (
           <ChatDialog
             node={currentNode}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>系统架构卡片连线</title>
+    <style>
+        body { background: #1a1a1a; color: #fff; font-family: sans-serif; padding: 50px; }
+        
+        /* 舞台容器 */
+        #canvas { position: relative; width: 800px; height: 500px; margin: 0 auto; }
+
+        /* 卡片样式 */
+        .card {
+            position: absolute;
+            width: 150px; height: 80px;
+            background: #2d2d2d;
+            border: 2px solid #555;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; cursor: grab;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: border 0.3s;
+        }
+        .card:hover { border-color: #00d4ff; }
+
+        /* 连线层 */
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        line { stroke: #00d4ff; stroke-width: 2; }
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        <div id="card1" class="card" style="top: 50px; left: 100px;">系统入口</div>
+        <div id="card2" class="card" style="top: 200px; left: 350px;">核心逻辑</div>
+        <div id="card3" class="card" style="top: 350px; left: 600px;">数据库</div>
+
+        <svg id="svg-layer">
+            <line id="line1" x1="0" y1="0" x2="0" y2="0" />
+            <line id="line2" x1="0" y1="0" x2="0" y2="0" />
+        </svg>
+    </div>
+
+    <script>
+        // 自动计算卡片中心位置并绘制连线
+        function updateLines() {
+            function getPos(id) {
+                const el = document.getElementById(id);
+                return {
+                    x: el.offsetLeft + el.offsetWidth / 2,
+                    y: el.offsetTop + el.offsetHeight / 2
+                };
+            }
+
+            const p1 = getPos('card1'), p2 = getPos('card2'), p3 = getPos('card3');
+            
+            // 连线1: card1 -> card2
+            document.getElementById('line1').setAttribute('x1', p1.x);
+            document.getElementById('line1').setAttribute('y1', p1.y);
+            document.getElementById('line1').setAttribute('x2', p2.x);
+            document.getElementById('line1').setAttribute('y2', p2.y);
+
+            // 连线2: card2 -> card3
+            document.getElementById('line2').setAttribute('x1', p2.x);
+            document.getElementById('line2').setAttribute('y1', p2.y);
+            document.getElementById('line2').setAttribute('x2', p3.x);
+            document.getElementById('line2').setAttribute('y2', p3.y);
+        }
+
+        window.onload = updateLines;
+    </script>
+</body>
+</html>

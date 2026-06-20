@@ -19,9 +19,27 @@ class SessionState:
     # 被滑动窗口压缩掉的历史对话摘要（当前层内）
     compressed_summary: str = ""
     node_completed: bool = False
+    # 当前节点的原问回响（终问）是否已完成（仅 verdict=correct 时为 True）
+    final_question_completed: bool = False
+    # 当前节点终问的最近一次评价：correct / partial / incorrect / ""（未作答）
+    final_question_verdict: str = ""
     # 最后一次问答缓存（供前端刷新恢复状态用）
     last_ai_question: str = ""
     last_user_answer: str = ""
+    # 当前层累积学习行为信号（累加计数，每次出现都+1）
+    # 结构：{"abstraction": N, "transfer": N, "example": N, "compression": N}
+    layer_signals: dict[str, int] = field(default_factory=dict)
+    # 已完成节点的历史归档（切换节点时归档）
+    # 每个元素结构：
+    #   {
+    #     "node_id": str,
+    #     "completed_layers": list[str],   # ["how","why","system"]
+    #     "layer_summaries": dict[str,str],
+    #     "node_completed": bool,
+    #     "final_question_completed": bool,
+    #     "final_question_verdict": str,   # correct/partial/incorrect/""
+    #   }
+    node_history: list[dict] = field(default_factory=list)
 
     @property
     def layer_index(self) -> int:
@@ -94,8 +112,12 @@ class SessionState:
             layer_summaries=data.get("layer_summaries", {}) or {},
             compressed_summary=data.get("compressed_summary", "") or "",
             node_completed=data.get("node_completed", False),
+            final_question_completed=data.get("final_question_completed", False),
+            final_question_verdict=data.get("final_question_verdict", "") or "",
             last_ai_question=data.get("last_ai_question", "") or "",
             last_user_answer=data.get("last_user_answer", "") or "",
+            layer_signals=data.get("layer_signals", {}) or {},
+            node_history=data.get("node_history", []) or [],
         )
 
 

@@ -22,13 +22,3 @@ def load_node_scope(node_id: str) -> dict | None:
         data = json.load(f)
     _cache[node_id] = data
     return data
-
-
-def list_node_ids() -> list[str]:
-    if not _DATA_DIR.exists():
-        return []
-    return sorted(f.stem for f in _DATA_DIR.glob("n*.json"))
-
-
-def clear_cache():
-    _cache.clear()
