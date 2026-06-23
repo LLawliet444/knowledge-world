@@ -441,10 +441,24 @@ async def final_answer(session_id: str, node_id: str, req: FinalAnswerRequest):
     state = session_manager.get_session(session_id)
     if state is None:
         raise HTTPException(404, "Session not found")
-    if state.node_id != node_id:
-        raise HTTPException(400, "Session not in this node")
-    if not state.node_completed:
-        raise HTTPException(400, "Node not completed yet, cannot answer final question")
+
+    # 判断终问目标节点是否为「已归档的已通关节点」
+    # 场景：用户完成节点 A 的 system 层后切换到节点 B，
+    # 再回到节点 A 回答终问时，session 绑定的是节点 B。
+    # 此时从 node_history 中查找节点 A 的归档记录。
+    archived_entry = None
+    if state.node_id != node_id or not state.node_completed:
+        for h in state.node_history:
+            if h.get("node_id") == node_id and h.get("node_completed"):
+                archived_entry = h
+                break
+
+    if archived_entry is None:
+        # 不是已归档的已通关节点 → 走原有校验
+        if state.node_id != node_id:
+            raise HTTPException(400, "Session not in this node")
+        if not state.node_completed:
+            raise HTTPException(400, "Node not completed yet, cannot answer final question")
 
     scope = load_node_scope(node_id)
     if scope is None:
@@ -493,11 +507,19 @@ async def final_answer(session_id: str, node_id: str, req: FinalAnswerRequest):
 
     # 记录终问 verdict；不管对错都归档（解锁下一节点），
     # 但 final_question_completed 只有 correct 时才 True（控制前端 nodeClear 绿色通关标记）
-    state.final_question_verdict = verdict
-    if verdict == "correct":
-        state.final_question_completed = True
-    session_manager._archive_current_node(state)
-    session_manager.save(state)
+    if archived_entry is not None:
+        # 跨节点终问：更新 node_history 中的归档记录
+        archived_entry["final_question_verdict"] = verdict
+        if verdict == "correct":
+            archived_entry["final_question_completed"] = True
+        session_manager.save(state)
+    else:
+        # 当前节点终问：原有逻辑
+        state.final_question_verdict = verdict
+        if verdict == "correct":
+            state.final_question_completed = True
+        session_manager._archive_current_node(state)
+        session_manager.save(state)
 
     return FinalAnswerResponse(
         session_id=session_id,

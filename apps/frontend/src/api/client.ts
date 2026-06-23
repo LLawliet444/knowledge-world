@@ -24,10 +24,19 @@ async function apiFetch<T>(
       signal: controller.signal,
     });
     clearTimeout(timer);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.error(`[apiFetch] ${method} ${path} → HTTP ${res.status}`, errBody);
+      throw new Error(`HTTP ${res.status}`);
+    }
     return (await res.json()) as T;
-  } catch {
+  } catch (err) {
     clearTimeout(timer);
+    if (err instanceof Error && err.message.startsWith("HTTP")) {
+      // 已在上面打印过日志
+    } else {
+      console.error(`[apiFetch] ${method} ${path} → network error`, err);
+    }
     return fallback;
   }
 }
