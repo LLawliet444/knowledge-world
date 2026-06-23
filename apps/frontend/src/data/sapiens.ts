@@ -10,7 +10,7 @@ export const sapiensWorld: World = {
   title: "人类简史",
   biomeTheme: "history-civilization",
   startNodeId: "n_cog_rev",
-  scholarStartByDepth: { what: { x: 60, y: 800 }, how: { x: 60, y: 200 }, why: { x: 60, y: 900 }, system: { x: 60, y: 850 } },
+  scholarStartByDepth: { what: { x: 60, y: 800 }, how: { x: 100, y: 400 }, why: { x: 60, y: 900 }, system: { x: 60, y: 850 } },
   layers: ["what", "how", "why", "system"],
 
   nodes: [
@@ -26,7 +26,7 @@ export const sapiensWorld: World = {
         title: "讲故事的人",
         avatar: "/nodes/npc_storyteller.png",
       },
-      positions: { what: { x: 450, y: 750 }, how: { x: 519, y: 183 }, why: { x: 112, y: 827 }, system: { x: 112, y: 630 } },
+      positions: { what: { x: 450, y: 750 }, how: { x: 300, y: 300 }, why: { x: 200, y: 780 }, system: { x: 112, y: 630 } },
       neighbors: ["n_agri_rev"],
       nextDiscoveryId: "n_agri_rev",
       sourceExcerpt:
@@ -90,7 +90,7 @@ export const sapiensWorld: World = {
         title: "老农夫",
         avatar: "/nodes/npc_farmer.png",
       },
-      positions: { what: { x: 560, y: 600 }, how: { x: 688, y: 155 }, why: { x: 393, y: 769 }, system: { x: 393, y: 654 } },
+      positions: { what: { x: 560, y: 600 }, how: { x: 520, y: 210 }, why: { x: 420, y: 769 }, system: { x: 393, y: 654 } },
       neighbors: ["n_money"],
       nextDiscoveryId: "n_money",
       sourceExcerpt:
@@ -142,7 +142,7 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 4: 货币 ───────────────────────────────────────────────────
+    // ── What 3: 货币 ───────────────────────────────────────────────────
     {
       id: "n_money",
       name: "货币的诞生",
@@ -154,7 +154,7 @@ export const sapiensWorld: World = {
         title: "商人",
         avatar: "/nodes/npc_merchant.png",
       },
-      positions: { what: { x: 800, y: 650 }, how: { x: 877, y: 141 }, why: { x: 674, y: 786 }, system: { x: 674, y: 681 } },
+      positions: { what: { x: 800, y: 650 }, how: { x: 760, y: 100 }, why: { x: 674, y: 786 }, system: { x: 674, y: 681 } },
       neighbors: ["n_agri_rev", "n_imagined_order"],
       nextDiscoveryId: "n_imagined_order",
       sourceExcerpt:
@@ -206,7 +206,7 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 5: 想象的秩序 ────────────────────────────────────────────
+    // ── What 4: 想象的秩序 ────────────────────────────────────────────
     {
       id: "n_imagined_order",
       name: "想象的秩序",
@@ -218,7 +218,7 @@ export const sapiensWorld: World = {
         title: "石碑书记",
         avatar: "/nodes/npc_scribe.png",
       },
-      positions: { what: { x: 1000, y: 750 }, how: { x: 1109, y: 155 }, why: { x: 954, y: 444 }, system: { x: 954, y: 655 } },
+      positions: { what: { x: 1000, y: 750 }, how: { x: 950, y: 160 }, why: { x: 954, y: 700 }, system: { x: 954, y: 655 } },
       neighbors: ["n_money", "n_empire"],
       nextDiscoveryId: "n_empire",
       sourceExcerpt:
@@ -270,7 +270,7 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 6: 帝国 ────────────────────────────────────────────────────
+    // ── What 5: 帝国 ────────────────────────────────────────────────────
     {
       id: "n_empire",
       name: "帝国的崛起",
@@ -282,7 +282,7 @@ export const sapiensWorld: World = {
         title: "帝王使者",
         avatar: "/nodes/npc_emperor.png",
       },
-      positions: { what: { x: 1130, y: 500 }, how: { x: 1319, y: 183 }, why: { x: 1263, y: 339 }, system: { x: 1263, y: 679 } },
+      positions: { what: { x: 1130, y: 500 }, how: { x: 1150, y: 300 }, why: { x: 1100, y: 600 }, system: { x: 1263, y: 679 } },
       neighbors: ["n_imagined_order", "n_sci_rev"],
       nextDiscoveryId: "n_sci_rev",
       sourceExcerpt:
@@ -334,7 +334,7 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 7: 科学革命 ───────────────────────────────────────────────
+    // ── What 6: 科学革命 ───────────────────────────────────────────────
     {
       id: "n_sci_rev",
       name: "科学革命",
@@ -346,7 +346,7 @@ export const sapiensWorld: World = {
         title: "观星者",
         avatar: "/nodes/npc_astronomer.png",
       },
-      positions: { what: { x: 1250, y: 340 }, how: { x: 1516, y: 394 }, why: { x: 1544, y: 224 }, system: { x: 1544, y: 592 } },
+      positions: { what: { x: 1250, y: 340 }, how: { x: 1400, y: 394 }, why: { x: 1100, y: 400 }, system: { x: 1544, y: 592 } },
       neighbors: ["n_empire", "n_capitalism"],
       nextDiscoveryId: "n_capitalism",
       sourceExcerpt:
@@ -398,7 +398,7 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 8: 资本与科学联姻 ──────────────────────────────────────────
+    // ── What 7: 资本与科学联姻 ──────────────────────────────────────────
     {
       id: "n_capitalism",
       name: "资本与科学联姻",
@@ -410,7 +410,7 @@ export const sapiensWorld: World = {
         title: "银行家",
         avatar: "/nodes/node_coin.png",
       },
-      positions: { what: { x: 1400, y: 200 }, how: { x: 1530, y: 738 }, why: { x: 1811, y: 181 }, system: { x: 1811, y: 605 } },
+      positions: { what: { x: 1400, y: 200 }, how: { x: 1650, y: 500 }, why: { x: 1200, y: 300 }, system: { x: 1811, y: 605 } },
       neighbors: ["n_sci_rev"],
       nextDiscoveryId: null,
       sourceExcerpt:
