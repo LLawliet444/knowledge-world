@@ -3,8 +3,8 @@
  * 后端不可用时自动降级，保证开发期可演示
  */
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
 
 async function apiFetch<T>(
   path: string,

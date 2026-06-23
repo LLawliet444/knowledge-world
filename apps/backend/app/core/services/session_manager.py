@@ -103,6 +103,10 @@ class SessionManager:
         state.final_question_verdict = ""
         state.last_ai_question = ""
         state.last_user_answer = ""
+        # 清空累积信号：换节点后新层从 0 开始计，避免上一节点残留信号污染新节点的评估
+        state.layer_signals = {}
+        # 清空层记录：新节点从空开始
+        state.layer_records = {}
         _save_session(state)
         logger.info(
             "node_entered",
@@ -124,6 +128,7 @@ class SessionManager:
             "node_id": state.node_id,
             "completed_layers": completed_layers,
             "layer_summaries": dict(state.layer_summaries),
+            "layer_records": dict(state.layer_records),
             "node_completed": state.node_completed,
             "final_question_completed": state.final_question_completed,
             "final_question_verdict": state.final_question_verdict,
@@ -163,6 +168,17 @@ class SessionManager:
             raise ValueError(f"Session {session_id} not found")
         prev_layer = state.current_layer
         state.layer_summaries[state.current_layer] = summary
+
+        # 归档当前层完整记录到 layer_records（对话+压缩摘要+信号+得分+总结）
+        prev_record = state.layer_records.get(prev_layer, {})
+        state.layer_records[prev_layer] = {
+            "dialogue": list(state.layer_dialogue),
+            "compressed_summary": state.compressed_summary,
+            "signals": dict(state.layer_signals),
+            "score": prev_record.get("score", 0),
+            "summary": summary,
+            "completed": True,
+        }
 
         next_lyr = state.next_layer()
         if next_lyr is None:

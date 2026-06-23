@@ -85,6 +85,7 @@ async def get_session_status(session_id: str):
             node_id=h.get("node_id", ""),
             completed_layers=h.get("completed_layers", []),
             layer_summaries=h.get("layer_summaries", {}),
+            layer_records=h.get("layer_records", {}),
             node_completed=h.get("node_completed", False),
             final_question_completed=h.get("final_question_completed", False),
             final_question_verdict=h.get("final_question_verdict", "") or "",
@@ -100,6 +101,7 @@ async def get_session_status(session_id: str):
                     node_id=state.node_id,
                     completed_layers=list(state.layer_summaries.keys()),
                     layer_summaries=dict(state.layer_summaries),
+                    layer_records=dict(state.layer_records),
                     node_completed=True,
                     final_question_completed=state.final_question_completed,
                     final_question_verdict=state.final_question_verdict,
@@ -114,6 +116,7 @@ async def get_session_status(session_id: str):
         node_completed=state.node_completed,
         last_ai_question=state.last_ai_question,
         last_user_answer=state.last_user_answer,
+        layer_records=dict(state.layer_records),
         node_history=history_entries,
     )
 
@@ -140,7 +143,9 @@ async def enter_node(session_id: str, node_id: str):
     if scope is None:
         raise HTTPException(404, f"Node {node_id} not found")
 
-    if state.node_completed:
+    # 当前节点已完成时，禁止重复进入「同一节点」；
+    # 但允许切换到新节点（session_manager.enter_node 会归档当前节点并重置状态机）
+    if state.node_completed and state.node_id == node_id:
         raise HTTPException(409, "Node already completed in this session")
 
     # 判断是「新进入/换节点」还是「同节点恢复」
@@ -299,6 +304,10 @@ async def _process_answer(
             "example": evaluation.example,
             "compression": evaluation.compression,
         }
+        # 同步更新当前层的 signals/score 到 layer_records（进行中的层也实时记录）
+        state.layer_records.setdefault(layer, {})
+        state.layer_records[layer]["signals"] = dict(state.layer_signals)
+        state.layer_records[layer]["score"] = evaluation.score
 
     should_advance = evaluation is not None and evaluation.can_advance
 
@@ -329,6 +338,10 @@ async def _process_answer(
             teaching_content=teaching,
             evaluation=evaluation,
         )
+
+    # should_advance=True：先保存当前状态（含更新后的 signals/score/layer_records），
+    # 否则 advance_layer 内部 _load_session 会读到旧的 layer_signals
+    session_manager.save(state)
 
     layer_summary = evaluation.summary if evaluation else ""
     state = session_manager.advance_layer(session_id, layer_summary)
@@ -478,11 +491,12 @@ async def final_answer(session_id: str, node_id: str, req: FinalAnswerRequest):
         )
         comment = "你的回答我收到了。经过四层探索，你已经有了自己的理解。这个节点的探索完成了。"
 
-    # 记录终问 verdict；仅 correct 时才标记 final_question_completed 并归档+解锁下一节点
+    # 记录终问 verdict；不管对错都归档（解锁下一节点），
+    # 但 final_question_completed 只有 correct 时才 True（控制前端 nodeClear 绿色通关标记）
     state.final_question_verdict = verdict
     if verdict == "correct":
         state.final_question_completed = True
-        session_manager._archive_current_node(state)
+    session_manager._archive_current_node(state)
     session_manager.save(state)
 
     return FinalAnswerResponse(
@@ -498,4 +512,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # log_config=None：禁用 uvicorn 默认的 dictConfig，避免覆盖 setup_logging() 配置的文件 handler
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_config=None)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True, log_config=None)

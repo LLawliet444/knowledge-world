@@ -4,6 +4,8 @@ import { sapiensWorld } from "./data/sapiens";
 import { WorldMap } from "./components/map/WorldMap";
 import { DialogBox } from "./components/dialog/DialogBox";
 import { HUD } from "./components/ui/HUD";
+import { SideToolbar } from "./components/ui/SideToolbar";
+import { LegendBar } from "./components/ui/LegendBar";
 
 export const App: React.FC = () => {
   const { world, loadWorld, sessionId, restoreSession } = useWorldStore();
@@ -27,11 +29,17 @@ export const App: React.FC = () => {
     <div
       className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#0a0a1a]"
     >
-      {/* PixiJS 地图（全屏） */}
+      {/* PixiJS 地图（全屏，含节点标签浮层） */}
       <WorldMap />
 
-      {/* HUD 叠加层 */}
+      {/* 顶部 HUD */}
       <HUD />
+
+      {/* 右侧工具栏 */}
+      <SideToolbar />
+
+      {/* 底部图例 */}
+      <LegendBar />
 
       {/* 对话框浮层 */}
       <DialogBox />

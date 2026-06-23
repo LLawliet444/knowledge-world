@@ -63,6 +63,27 @@ export interface AnswerResponse {
   evaluation: Evaluation | null;
 }
 
+/** 单层的完整记录（对话+信号+得分+总结） */
+export interface LayerRecord {
+  /** 完整对话历史 */
+  dialogue: DialogueMessage[];
+  /** 被滑动窗口压缩掉的早期对话摘要 */
+  compressed_summary: string;
+  /** 累积学习行为信号 */
+  signals: {
+    abstraction: number;
+    transfer: number;
+    example: number;
+    compression: number;
+  };
+  /** 后端加权得分 */
+  score: number;
+  /** 层总结 */
+  summary: string;
+  /** 该层是否已完成 */
+  completed: boolean;
+}
+
 /** 单个历史节点的完成情况 */
 export interface NodeHistoryEntry {
   /** 节点 ID（后端 n001-n007） */
@@ -71,6 +92,8 @@ export interface NodeHistoryEntry {
   completed_layers: string[];
   /** 每层的压缩摘要 */
   layer_summaries: Record<string, string>;
+  /** 每层的完整记录（对话+信号+得分+总结） */
+  layer_records: Record<string, LayerRecord>;
   /** 节点四层是否全部完成 */
   node_completed: boolean;
   /** 原问回响（终问）是否完成（仅 verdict=correct 时为 true） */
@@ -94,6 +117,8 @@ export interface SessionStatusResponse {
   last_ai_question: string;
   /** 最后一次用户回答（空字符串表示尚未回答） */
   last_user_answer: string;
+  /** 当前节点的每层完整记录（进行中的层含 signals/score，已完成的层含完整 dialogue） */
+  layer_records: Record<string, LayerRecord>;
   /** 已完成节点的历史归档（含当前节点若已完成） */
   node_history: NodeHistoryEntry[];
 }

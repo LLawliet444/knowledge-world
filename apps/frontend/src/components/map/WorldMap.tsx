@@ -13,6 +13,8 @@ import { useWorldStore } from "../../store/worldStore";
 import { useBgmStore } from "../../store/bgmStore";
 import { getVisibleNodes } from "../../utils/depthGate";
 import { preloadPixiTextures } from "../../utils/preloadTextures";
+import { NodeLabelLayer } from "./NodeLabelLayer";
+import { GlowingPath } from "./GlowingPath";
 
 import { DepthBackground } from "./DepthBackground";
 import { DepthTransitionVideo, getTransitionVideoUrl } from "./DepthTransitionVideo";
@@ -348,35 +350,8 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
               onSwitchComplete={handleDepthSwitchComplete}
             />
 
-            {/* 路径线：像素风的曲折虚线连接各节点 */}
-            <Graphics
-              draw={(g) => {
-                g.clear();
-                for (const seg of pathSegments) {
-                  g.lineStyle({
-                    width: 4,
-                    color: seg.revealed ? 0x8b5a2b : 0x6b4f3a,
-                    alpha: seg.revealed ? 0.55 : 0.25,
-                  });
-                  g.moveTo(seg.x1, seg.y1);
-                  g.lineTo(seg.x2, seg.y2);
-                }
-
-                for (const seg of pathSegments) {
-                  if (!seg.revealed) continue;
-                  const steps = 4;
-                  for (let s = 1; s < steps; s++) {
-                    const t = s / steps;
-                    const px = seg.x1 + (seg.x2 - seg.x1) * t;
-                    const py = seg.y1 + (seg.y2 - seg.y1) * t;
-                    g.lineStyle({ width: 0, color: 0x000000, alpha: 0 });
-                    g.beginFill(0xa87640, 0.6);
-                    g.drawRect(px - 3, py - 3, 6, 6);
-                    g.endFill();
-                  }
-                }
-              }}
-            />
+            {/* 发光路径：多层 BlurFilter 叠加 + 流动光点 */}
+            <GlowingPath segments={pathSegments} />
 
             {world.nodes.map((node) => {
               const progress = nodeProgress[node.id];
@@ -404,6 +379,9 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
             />
           </Container>
         </Stage>
+
+        {/* 节点标签层（HTML 浮层，跟随 stage 一起 transform 缩放） */}
+        <NodeLabelLayer />
 
         {/* 浓雾层：同样 cover 模式等比缩放，与 Stage 对齐 */}
         <div

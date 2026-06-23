@@ -97,6 +97,8 @@ class NodeHistoryEntry(BaseModel):
     completed_layers: list[str] = Field(default_factory=list)
     # 每层的压缩摘要
     layer_summaries: dict[str, str] = Field(default_factory=dict)
+    # 每层的完整记录（对话+信号+得分+总结）
+    layer_records: dict[str, dict] = Field(default_factory=dict)
     # 节点四层是否全部完成
     node_completed: bool = False
     # 原问回响（终问）是否完成（仅 verdict=correct 时为 True）
@@ -114,6 +116,8 @@ class SessionStatusResponse(BaseModel):
     node_completed: bool = False
     last_ai_question: str = ""
     last_user_answer: str = ""
+    # 当前节点的每层完整记录（进行中的层含 signals/score，已完成的层含完整 dialogue）
+    layer_records: dict[str, dict] = Field(default_factory=dict)
     # 已完成节点的历史归档（含当前节点若已完成）
     node_history: list[NodeHistoryEntry] = Field(default_factory=list)
 

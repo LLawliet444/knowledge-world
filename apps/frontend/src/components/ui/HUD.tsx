@@ -1,21 +1,13 @@
 /**
- * HUD：迷雾消散百分比 + 深度切换器入口
+ * HUD：左上世界标题 + 右上迷雾消散百分比
  */
 
 import React, { useCallback } from "react";
 import { useWorldStore } from "../../store/worldStore";
 import { useDialogStore } from "../../store/dialogStore";
-import { useBgmStore } from "../../store/bgmStore";
-import { getDepthGateStatus } from "../../utils/depthGate";
 import { LAYER_ORDER } from "../../constants/biome";
+import { getDepthGateStatus } from "../../utils/depthGate";
 import type { LayerType } from "../../types/world";
-
-const DEPTH_ICONS: Record<LayerType, string> = {
-  what: "🌱",
-  how: "⚙️",
-  why: "🔍",
-  system: "🌌",
-};
 
 const DEPTH_LABELS: Record<LayerType, string> = {
   what: "认知层",
@@ -25,18 +17,22 @@ const DEPTH_LABELS: Record<LayerType, string> = {
 };
 
 export const HUD: React.FC = () => {
-  const { world, currentDepth, fogPercentage, switchDepth, nodeProgress, resetProgress } = useWorldStore();
+  const { world, currentDepth, fogPercentage, nodeProgress, switchDepth } = useWorldStore();
   const { close } = useDialogStore();
-  const { isPlaying, pause, resume } = useBgmStore();
 
-  const handleSwitch = useCallback(
-    (depth: LayerType) => {
-      if (depth === currentDepth) return;
-      close(); // 关闭对话框
-      switchDepth(depth);
-    },
-    [currentDepth, close, switchDepth],
-  );
+  const handleCycleDepth = useCallback(() => {
+    if (!world) return;
+    // 找下一个可用的深度
+    for (let i = 1; i <= LAYER_ORDER.length; i++) {
+      const candidate = LAYER_ORDER[(LAYER_ORDER.indexOf(currentDepth) + i) % LAYER_ORDER.length];
+      const status = getDepthGateStatus(candidate, currentDepth, nodeProgress, world);
+      if (status !== "locked") {
+        close();
+        switchDepth(candidate);
+        return;
+      }
+    }
+  }, [world, currentDepth, nodeProgress, close, switchDepth]);
 
   if (!world) return null;
 
@@ -63,79 +59,20 @@ export const HUD: React.FC = () => {
         </div>
       </div>
 
-      {/* 左上角：世界标题 */}
+      {/* 左上角：世界标题 + 深度 chip */}
       <div className="absolute left-4 top-4 z-50">
-        <div className="rounded border-4 border-[#1a1226] bg-[#fff8e6]/90 px-3 py-1 shadow-[3px_3px_0_0_#1a1226]">
-          <div className="font-pixel text-xs text-[#1a1226] leading-tight">
+        <div className="rounded border-4 border-[#1a1226] bg-[#fff8e6]/95 px-3 py-2 shadow-[3px_3px_0_0_#1a1226]">
+          <div className="font-pixel text-base text-[#1a1226] leading-none mb-2">
             {world.title}
           </div>
-          <div className="font-pixel text-[10px] text-[#3a1f0a]/60 mt-1">
-            {DEPTH_LABELS[currentDepth]}
-          </div>
+          <button
+            onClick={handleCycleDepth}
+            className="font-pixel text-[10px] text-[#3a1f0a] px-2 py-0.5 border-2 border-[#1a1226] bg-[#e8d5f7] hover:bg-[#d8c5e7] active:translate-x-[1px] active:translate-y-[1px]"
+            title="点击切换到下一个可用深度"
+          >
+            🌱 {DEPTH_LABELS[currentDepth]}
+          </button>
         </div>
-      </div>
-
-      {/* 右下角：深度切换器（简洁上下箭头 */}
-      <div className="absolute right-4 bottom-4 z-50 flex flex-col items-center gap-0.5">
-        <div className="font-pixel text-[10px] text-[#3a1f0a]/70 mb-0.5">深度切换</div>
-
-        {/* 向上按钮 */}
-        <button
-          onClick={() => {
-            const idx = LAYER_ORDER.indexOf(currentDepth);
-            if (idx > 0) handleSwitch(LAYER_ORDER[idx - 1]);
-          }}
-          disabled={(() => {
-            const idx = LAYER_ORDER.indexOf(currentDepth);
-            if (idx <= 0) return true;
-            const prev = LAYER_ORDER[idx - 1];
-            const prevStatus = getDepthGateStatus(prev, currentDepth, nodeProgress, world);
-            return prevStatus === "locked";
-          })()}
-          className="flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] disabled:bg-[#e8d5f7] disabled:text-[#3a1f0a]/40 disabled:cursor-not-allowed disabled:hover:shadow-[2px_2px_0_0_#1a1226] disabled:hover:translate-x-0 disabled:hover:translate-y-0 active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]">
-          <span className="font-pixel text-sm">▲</span>
-        </button>
-
-        {/* 向下按钮 */}
-        <button
-          onClick={() => {
-            const idx = LAYER_ORDER.indexOf(currentDepth);
-            if (idx < LAYER_ORDER.length - 1) handleSwitch(LAYER_ORDER[idx + 1]);
-          }}
-          disabled={(() => {
-            const idx = LAYER_ORDER.indexOf(currentDepth);
-            if (idx >= LAYER_ORDER.length - 1) return true;
-            const next = LAYER_ORDER[idx + 1];
-            const nextStatus = getDepthGateStatus(next, currentDepth, nodeProgress, world);
-            return nextStatus === "locked";
-          })()}
-          className="flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] disabled:bg-[#e8d5f7] disabled:text-[#3a1f0a]/40 disabled:cursor-not-allowed disabled:hover:shadow-[2px_2px_0_0_#1a1226] disabled:hover:translate-x-0 disabled:hover:translate-y-0 active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]">
-          <span className="font-pixel text-sm">▼</span>
-        </button>
-
-        {/* BGM 开关 */}
-        <button
-          onClick={() => (isPlaying ? pause() : resume())}
-          className="mt-2 flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]"
-          title={isPlaying ? "关闭 BGM" : "播放 BGM"}
-        >
-          <span className="font-pixel text-base">{isPlaying ? "🔊" : "🔇"}</span>
-        </button>
-
-        {/* 重置进度（清缓存） */}
-        <button
-          onClick={() => {
-            if (!world) return;
-            if (confirm("确定要重置所有探索进度吗？这将清空缓存并回到认知层起点。")) {
-              close();
-              resetProgress(world);
-            }
-          }}
-          className="mt-2 flex items-center justify-center w-10 h-8 rounded border-4 border-[#1a1226] bg-[#fff8e6] text-[#1a1226] shadow-[2px_2px_0_0_#1a1226] hover:shadow-[3px_3px_0_0_#1a1226] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_0_#1a1226]"
-          title="重置探索进度"
-        >
-          <span className="font-pixel text-base">↺</span>
-        </button>
       </div>
     </>
   );

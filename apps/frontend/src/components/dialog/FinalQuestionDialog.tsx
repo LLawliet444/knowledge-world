@@ -163,10 +163,11 @@ export const FinalQuestionDialog: React.FC<FinalQuestionDialogProps> = ({
     // 记录 verdict 到 store（无论对错）
     setFinalQuestionVerdict(node.id, verdict);
 
+    // 不管对错都解锁下一节点（用户可反复回答 NPC 问题）；
+    // 只有 correct 时才标记终问完成 + nodeClear（绿色通关）
+    unlockNextNode(node.id);
     if (verdict === "correct") {
-      // 通过 → 标记终问完成 + 解锁下一节点
       setFinalQuestion(node.id, "completed");
-      unlockNextNode(node.id);
       setNodeCompleted(true);
     } else {
       // 未通过 → 保持 finalQuestion="available"，允许重试

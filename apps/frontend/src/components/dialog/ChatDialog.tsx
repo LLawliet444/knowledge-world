@@ -88,6 +88,10 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
   const [nodeCompleted, setNodeCompleted] = useState(false);
   // 层推进后待切换：值为目标层名。打字全部完成后延迟切换地图
   const [pendingSwitch, setPendingSwitch] = useState<string | null>(null);
+  // isLoopBack 时延迟设置的终问状态：等对话框关闭、切换到 what 层后再 setFinalQuestion，
+  // 否则 fqState 立即变 available 会导致 DialogBox 卸载 ChatDialog 换成 FinalQuestionDialog，
+  // 评估内容和层切换动画都来不及展示
+  const pendingFinalQuestion = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // 防止 StrictMode 双重挂载导致 initSession 重复执行
   const initRef = useRef(false);
@@ -168,12 +172,18 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     const timer = setTimeout(() => {
       const target = pendingSwitch;
       setPendingSwitch(null);
+      // isLoopBack 场景：对话框关闭前设置终问 available，
+      // 这样切换到 what 层后用户点击 NPC 会进入 FinalQuestionDialog
+      if (pendingFinalQuestion.current) {
+        setFinalQuestion(pendingFinalQuestion.current, "available");
+        pendingFinalQuestion.current = null;
+      }
       // 节点状态已在 handleSend 中解锁，这里只负责关闭对话框 + 切换地图
       onClose();
       switchDepth(target as LayerType);
     }, 2500);
     return () => clearTimeout(timer);
-  }, [pendingSwitch, typingId, messages, onClose, switchDepth]);
+  }, [pendingSwitch, typingId, messages, onClose, switchDepth, setFinalQuestion]);
 
   // 处理 answer 接口响应：抽取为共享逻辑，供 handleSend 与 initSession 补提交复用
   const processAnswerResponse = useCallback((res: AnswerResponse) => {
@@ -221,7 +231,8 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         updateNodeDepthState(node.id, targetLayer, "available");
       }
       if (isLoopBack) {
-        setFinalQuestion(node.id, "available");
+        // 不立即 setFinalQuestion，延迟到对话框关闭后（见 pendingSwitch useEffect）
+        pendingFinalQuestion.current = node.id;
       }
 
       const summaryText = res.layer_summary

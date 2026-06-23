@@ -242,9 +242,16 @@ export const useWorldStore = create<WorldState & WorldActions>()(
         const { sessionId, world } = get();
         if (!sessionId || !world) return null;
 
-        const status = await getSessionStatus(sessionId);
+        let status: SessionStatus | null;
+        try {
+          status = await getSessionStatus(sessionId);
+        } catch {
+          // 后端暂时不可用（网络错误/超时/500）：保留 sessionId，下次刷新再试。
+          // 不恢复进度，保持当前 UI 状态（避免清空 sessionId 导致进度永久丢失）。
+          return null;
+        }
         if (!status) {
-          // 后端无此会话（过期或不存在）：清空 sessionId，保持初始进度
+          // 后端 404：session 真的不存在（过期或被清），清空 sessionId
           set({ sessionId: null });
           return null;
         }
@@ -272,11 +279,12 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           if (h.nodeCompleted) {
             p.system = "completed";
             p.finalQuestionVerdict = h.finalQuestionVerdict || "";
+            // 不管对错都解锁下一节点（用户可反复回答 NPC 问题）；
+            // 只有终问通过才标记 completed + nodeClear（绿色通关）
+            afterNodeCompleted(h.frontendNodeId, "what", world, progress);
             if (h.finalQuestionCompleted) {
-              // 终问通过 → completed，解锁下一节点
               p.finalQuestion = "completed";
               p.nodeClear = true;
-              afterNodeCompleted(h.frontendNodeId, "what", world, progress);
             } else {
               // 终问未通过或未作答 → available，下次点开仍显示终问
               p.finalQuestion = "available";
