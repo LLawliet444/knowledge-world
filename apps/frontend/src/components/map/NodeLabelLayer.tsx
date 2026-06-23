@@ -147,10 +147,11 @@ export const NodeLabelLayer: React.FC = () => {
           kind = "current";
         } else if (state === "completed") {
           // 节点通关状态：
-          //   - 4 层全完成 + 终问 pending → 等待终问（不显示已通关）
+          //   - what 层 4 层全完成 + 终问 pending → 等待终问（不显示已通关）
           //   - 4 层全完成 + 终问通过 → 已通关
           //   - 仅当前层完成（4 层未全完）→ 已通关
-          if (allLayersDone && finalQuestionAvailable) {
+          //   - how/why/system 层 → 一律显示已通关（终问气泡只在 what 层展示）
+          if (currentDepth === "what" && allLayersDone && finalQuestionAvailable) {
             kind = "awaiting_final";
           } else {
             kind = "cleared";
@@ -166,7 +167,7 @@ export const NodeLabelLayer: React.FC = () => {
         const labelY = np.y - 110;
         // ? 气泡：NPC 头顶偏上（与 NpcHalo 上方留出空间）
         const bubbleX = np.x;
-        const bubbleY = np.y - 50;
+        const bubbleY = np.y - 180;
 
         const showQuestionBubble = kind === "awaiting_final";
 
