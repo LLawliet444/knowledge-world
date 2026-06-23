@@ -10,14 +10,22 @@
  * - 当前所在（与学者最接近的节点）
  * - 主线索（nextDiscoveryId 链上下一个可前往节点）
  * - 可前往（其他 available 节点）
- * - 已通关（completed）
+ * - 已通关（completed 且终问通过 = nodeClear）
+ * - 等待终问（completed 但终问还没答对，NPC 头顶有 ? 气泡）
  * - 未通关（locked）
  */
 
 import React from "react";
 import { useWorldStore } from "../../store/worldStore";
 
-type LabelKind = "current" | "available" | "locked" | "cleared" | "start" | "mainline";
+type LabelKind =
+  | "current"
+  | "available"
+  | "locked"
+  | "cleared"
+  | "start"
+  | "mainline"
+  | "awaiting_final";
 
 const LABEL_TEXT: Record<LabelKind, string> = {
   current: "当前所在",
@@ -26,6 +34,7 @@ const LABEL_TEXT: Record<LabelKind, string> = {
   cleared: "已通关",
   start: "起点",
   mainline: "主线索",
+  awaiting_final: "等待终问",
 };
 const LABEL_ICON: Record<LabelKind, string> = {
   current: "📍",
@@ -34,6 +43,7 @@ const LABEL_ICON: Record<LabelKind, string> = {
   cleared: "✅",
   start: "✦",
   mainline: "◆",
+  awaiting_final: "?",
 };
 const LABEL_BG: Record<LabelKind, string> = {
   current: "#fff8e6",
@@ -42,6 +52,7 @@ const LABEL_BG: Record<LabelKind, string> = {
   cleared: "#dff0e4",
   start: "#fff8e6",
   mainline: "#fff8e6",
+  awaiting_final: "#fff8e6",
 };
 const LABEL_FG: Record<LabelKind, string> = {
   current: "#1a1226",
@@ -50,6 +61,7 @@ const LABEL_FG: Record<LabelKind, string> = {
   cleared: "#2e6b3a",
   start: "#b56c27",
   mainline: "#6b5b95",
+  awaiting_final: "#6b5b95",
 };
 const LABEL_BORDER: Record<LabelKind, string> = {
   current: "#1a1226",
@@ -58,6 +70,7 @@ const LABEL_BORDER: Record<LabelKind, string> = {
   cleared: "#5d9c3f",
   start: "#da9100",
   mainline: "#6b5b95",
+  awaiting_final: "#6b5b95",
 };
 
 export const NodeLabelLayer: React.FC = () => {
@@ -99,11 +112,32 @@ export const NodeLabelLayer: React.FC = () => {
         zIndex: 10,
       }}
     >
+      <style>{`
+        @keyframes questionBounce {
+          0%, 100% { transform: translate(-50%, 0); }
+          50%      { transform: translate(-50%, -8px); }
+        }
+        @keyframes questionWiggle {
+          0%, 100% { transform: rotate(-6deg); }
+          50%      { transform: rotate(6deg); }
+        }
+      `}</style>
+
       {world.nodes.map((node) => {
         const p = nodeProgress[node.id];
         const state = p?.[currentDepth] ?? "locked";
         const np = node.positions[currentDepth];
         if (!np) return null;
+
+        // 节点 4 层全完成 + 终问未完成（available）= 等待终问
+        // 节点 4 层全完成 + 终问完成（completed / nodeClear）= 已通关
+        const allLayersDone = p
+          ? p.what === "completed" &&
+            p.how === "completed" &&
+            p.why === "completed" &&
+            p.system === "completed"
+          : false;
+        const finalQuestionAvailable = p?.finalQuestion === "available";
 
         // 决定 label 类型
         let kind: LabelKind;
@@ -112,7 +146,15 @@ export const NodeLabelLayer: React.FC = () => {
         } else if (node.id === currentId) {
           kind = "current";
         } else if (state === "completed") {
-          kind = "cleared";
+          // 节点通关状态：
+          //   - 4 层全完成 + 终问 pending → 等待终问（不显示已通关）
+          //   - 4 层全完成 + 终问通过 → 已通关
+          //   - 仅当前层完成（4 层未全完）→ 已通关
+          if (allLayersDone && finalQuestionAvailable) {
+            kind = "awaiting_final";
+          } else {
+            kind = "cleared";
+          }
         } else if (state === "available") {
           kind = mainlineIds.has(node.id) ? "mainline" : "available";
         } else {
@@ -122,59 +164,134 @@ export const NodeLabelLayer: React.FC = () => {
         // 标签定位：NPC 头顶上方
         const labelX = np.x;
         const labelY = np.y - 110;
+        // ? 气泡：NPC 头顶偏上（与 NpcHalo 上方留出空间）
+        const bubbleX = np.x;
+        const bubbleY = np.y - 50;
+
+        const showQuestionBubble = kind === "awaiting_final";
 
         return (
-          <div
-            key={node.id}
-            style={{
-              position: "absolute",
-              left: labelX,
-              top: labelY,
-              transform: "translate(-50%, 0)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            {/* 状态 chip */}
+          <React.Fragment key={node.id}>
+            {/* ? 气泡（NPC 头顶）— 仅在 waiting_final 时显示 */}
+            {showQuestionBubble && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: bubbleX,
+                  top: bubbleY,
+                  transform: "translate(-50%, 0)",
+                  width: 56,
+                  height: 56,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  pointerEvents: "none",
+                  animation: "questionBounce 1.6s ease-in-out infinite",
+                }}
+              >
+                {/* 气泡外光晕（柔光） */}
+                <div
+                  style={{
+                    position: "absolute",
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(255, 248, 224, 0.35)",
+                    filter: "blur(8px)",
+                  }}
+                />
+                {/* 气泡主体（白底+深紫边框+问号） */}
+                <div
+                  style={{
+                    position: "relative",
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    backgroundColor: "#fff8e6",
+                    border: "4px solid #1a1226",
+                    color: "#6b5b95",
+                    boxShadow: "2px 2px 0 0 #1a1226, inset 0 0 0 2px #fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 28,
+                    fontWeight: "bold",
+                    fontFamily: "'Zpix', 'Press Start 2P', monospace",
+                    animation: "questionWiggle 0.6s ease-in-out infinite",
+                    textShadow: "2px 2px 0 #d8c5e7",
+                  }}
+                >
+                  ?
+                </div>
+                {/* 气泡下方小三角（指向 NPC） */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: -2,
+                    left: "50%",
+                    transform: "translateX(-50%) rotate(45deg)",
+                    width: 12,
+                    height: 12,
+                    backgroundColor: "#fff8e6",
+                    borderRight: "4px solid #1a1226",
+                    borderBottom: "4px solid #1a1226",
+                  }}
+                />
+              </div>
+            )}
+
+            {/* 标签（状态 chip + 节点名） */}
             <div
               style={{
-                display: "inline-flex",
+                position: "absolute",
+                left: labelX,
+                top: labelY,
+                transform: "translate(-50%, 0)",
+                display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
                 gap: 4,
-                backgroundColor: LABEL_BG[kind],
-                color: LABEL_FG[kind],
-                border: `2px solid ${LABEL_BORDER[kind]}`,
-                padding: "3px 8px",
-                fontSize: 14,
-                fontWeight: "bold",
-                textShadow: "1px 1px 0 rgba(0,0,0,0.15)",
-                boxShadow: "2px 2px 0 rgba(26, 18, 38, 0.35)",
-                whiteSpace: "nowrap",
-                fontFamily: "'Zpix', 'Press Start 2P', monospace",
-                imageRendering: "pixelated",
               }}
             >
-              <span style={{ fontSize: 12 }}>{LABEL_ICON[kind]}</span>
-              <span>{LABEL_TEXT[kind]}</span>
+              {/* 状态 chip */}
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: LABEL_BG[kind],
+                  color: LABEL_FG[kind],
+                  border: `2px solid ${LABEL_BORDER[kind]}`,
+                  padding: "3px 8px",
+                  fontSize: 14,
+                  fontWeight: "bold",
+                  textShadow: "1px 1px 0 rgba(0,0,0,0.15)",
+                  boxShadow: "2px 2px 0 rgba(26, 18, 38, 0.35)",
+                  whiteSpace: "nowrap",
+                  fontFamily: "'Zpix', 'Press Start 2P', monospace",
+                  imageRendering: "pixelated",
+                }}
+              >
+                <span style={{ fontSize: 12 }}>{LABEL_ICON[kind]}</span>
+                <span>{LABEL_TEXT[kind]}</span>
+              </div>
+              {/* 节点名 */}
+              <div
+                style={{
+                  backgroundColor: "rgba(26, 18, 38, 0.78)",
+                  color: "#fff8e6",
+                  border: "2px solid #1a1226",
+                  padding: "3px 10px",
+                  fontSize: 13,
+                  whiteSpace: "nowrap",
+                  fontFamily: "'Zpix', 'Press Start 2P', monospace",
+                  textShadow: "1px 1px 0 #1a1226",
+                }}
+              >
+                {node.name}
+              </div>
             </div>
-            {/* 节点名 */}
-            <div
-              style={{
-                backgroundColor: "rgba(26, 18, 38, 0.78)",
-                color: "#fff8e6",
-                border: "2px solid #1a1226",
-                padding: "3px 10px",
-                fontSize: 13,
-                whiteSpace: "nowrap",
-                fontFamily: "'Zpix', 'Press Start 2P', monospace",
-                textShadow: "1px 1px 0 #1a1226",
-              }}
-            >
-              {node.name}
-            </div>
-          </div>
+          </React.Fragment>
         );
       })}
     </div>
