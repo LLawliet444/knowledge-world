@@ -22,6 +22,7 @@ import ScholarSprite from "./ScholarSprite";
 
 import ScenePlayer, { NODE_SCENE_MAP } from "../scene/ScenePlayer";
 import IntroGuide from "../scene/IntroGuide";
+import NodeSpeechBubble from "./NodeSpeechBubble";
 
 import type { WorldNode, DialogueLine, WhatScroll } from "../../types/world";
 
@@ -64,6 +65,8 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     scrolls: WhatScroll[];
     wrapUp: DialogueLine[];
   } | null>(null);
+  // 气泡 NPC：What 层完成后点击 NPC 时显示，非终问状态
+  const [bubbleNode, setBubbleNode] = useState<WorldNode | null>(null);
 
   // —— cover 模式：等比缩放铺满整个窗口 ——
   const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -115,6 +118,11 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
     if (!world) return;
     useBgmStore.getState().playFor(currentDepth);
   }, [currentDepth, world?.worldId]);
+
+  // 气泡 NPC 与当前深度联动：切换深度时关闭气泡
+  useEffect(() => {
+    setBubbleNode(null);
+  }, [currentDepth]);
 
   const visibleIds = world
     ? getVisibleNodes(currentDepth, world, nodeProgress)
@@ -188,6 +196,13 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
 
           if (shouldPlayScene) {
             setActiveSceneIndex(NODE_SCENE_MAP[node.id]);
+          } else if (
+            currentDepth === "what" &&
+            progress?.what === "completed" &&
+            (progress?.finalQuestion ?? "locked") === "locked"
+          ) {
+            // What 已完成、终问尚未解锁 → NPC 头顶冒泡（显示终问），不弹对话框
+            setBubbleNode(node);
           } else {
             open(node, currentDepth);
             onNodeClick?.(node);
@@ -409,6 +424,27 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
             onRevealComplete={() => setRevealingPos(null)}
           />
         </div>
+
+        {/* NPC 头顶气泡层（What 已完成但终问未解锁时） */}
+        {bubbleNode && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: MAP_WIDTH,
+              height: MAP_HEIGHT,
+              zIndex: 10,
+            }}
+          >
+            <NodeSpeechBubble
+              node={bubbleNode}
+              posX={nodePos(bubbleNode).x}
+              posY={nodePos(bubbleNode).y}
+              onClose={() => setBubbleNode(null)}
+            />
+          </div>
+        )}
       </div>
     </div>
 
