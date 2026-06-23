@@ -210,8 +210,8 @@ export const sapiensWorld: World = {
     {
       id: "n_imagined_order",
       name: "想象的秩序",
-      icon: "/nodes/node_scroll.png",
-      iconNpc: "/nodes/npc_scribe.png",
+      icon: "/scenes/temple_myth/focus_symbol.png",
+      iconNpc: "/scenes/temple_myth/gate_npc.png",
       mysteryQuestion: "为什么国家和公司都像故事？",
       gateNpc: {
         id: "gate_scribe",
@@ -274,8 +274,8 @@ export const sapiensWorld: World = {
     {
       id: "n_capitalism",
       name: "资本与科学联姻",
-      icon: "/nodes/node_coin.png",
-      iconNpc: "/nodes/npc_priest.png",
+      icon: "/scenes/stone_law/focus_symbol.png",
+      iconNpc: "/scenes/stone_law/gate_npc.png",
       mysteryQuestion: "为什么信用让远征成为可能？",
       gateNpc: {
         id: "gate_capitalist",
