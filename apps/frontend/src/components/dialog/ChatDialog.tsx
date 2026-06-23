@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useWorldStore } from "../../store/worldStore";
+import { useKnowledgeStore } from "../../store/knowledgeStore";
 import { createSession, enterNode, answerNode } from "../../api/nodes";
 import { MentorAvatar } from "./MentorAvatar";
 import { ApprenticeAvatar } from "./ApprenticeAvatar";
@@ -78,6 +79,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
   isFinalQuestion,
 }) => {
   const { updateNodeDepthState, switchDepth, setFinalQuestion, sessionId: storeSessionId, setSessionId } = useWorldStore();
+  const { recordLayer } = useKnowledgeStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -436,6 +438,12 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     try {
       const res = await answerNode(sessionId!, node.id, userText);
       processAnswerResponse(res);
+      // 记录用户回答到思考笔记（how/why/system 层）
+      const aiFeedback = res.evaluation?.reason
+        ?? res.teaching_content?.content
+        ?? res.teaching_content?.core_question
+        ?? "";
+      recordLayer(node.id, currentLayer as "how" | "why" | "system", userText, aiFeedback);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -448,7 +456,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     } finally {
       setSubmitting(false);
     }
-  }, [inputText, submitting, sessionId, node.id, processAnswerResponse, isFinalQuestion, setFinalQuestion]);
+  }, [inputText, submitting, sessionId, node.id, processAnswerResponse, isFinalQuestion, setFinalQuestion, recordLayer, currentLayer]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

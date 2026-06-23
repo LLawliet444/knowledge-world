@@ -20,6 +20,7 @@ import { ChatDialog } from "./ChatDialog";
 import { FinalQuestionDialog } from "./FinalQuestionDialog";
 import { NodeMemorialDialog } from "./NodeMemorialDialog";
 import { LayerClearanceDialog } from "./LayerClearanceDialog";
+import { ThinkingNotePage } from "./ThinkingNotePage";
 import { ScholarLoading } from "./ScholarLoading";
 import type { WhatCard } from "../../types/world";
 
@@ -35,7 +36,7 @@ export const DialogBox: React.FC = () => {
     close,
   } = useDialogStore();
 
-  const { updateNodeDepthState, nodeProgress } = useWorldStore();
+  const { updateNodeDepthState, nodeProgress, setWhatChoice } = useWorldStore();
 
   // 原问回响 / 通关纪念：system 全通后的 what 层分支
   // - available：终问待回答或未通过，走 FinalQuestionDialog
@@ -133,6 +134,7 @@ export const DialogBox: React.FC = () => {
   const handleWhatComplete = useCallback(
     (choice: "definition" | "example" | "bridge") => {
       if (!currentNode) return;
+      setWhatChoice(currentNode.id, choice);
       updateNodeDepthState(currentNode.id, "what", "completed");
       close();
       // 兜底路径：无卷轴数据时，完成 What 后自动切换到理解层
@@ -142,7 +144,7 @@ export const DialogBox: React.FC = () => {
         store.switchDepth("how");
       }
     },
-    [currentNode, updateNodeDepthState, close],
+    [currentNode, updateNodeDepthState, close, setWhatChoice],
   );
 
   // 深度标签文字
@@ -207,7 +209,7 @@ export const DialogBox: React.FC = () => {
     <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4 pointer-events-none">
       <div className="pointer-events-auto w-full max-w-5xl relative mt-6" style={boardStyle}>
         <div style={titleRibbonStyle}>
-          📜 {currentNode.gateNpc.title} · {isLayerCleared ? "通关评级" : isNodeMemorial ? "通关纪念" : isFinalQuestion ? "原问回响" : depthLabel}
+          📜 {currentNode.gateNpc.title} · {isLayerCleared ? "通关评级" : isNodeMemorial ? "思考笔记" : isFinalQuestion ? "原问回响" : depthLabel}
         </div>
         <div style={goldInnerFrameStyle} />
 
@@ -374,7 +376,8 @@ export const DialogBox: React.FC = () => {
             onClose={close}
           />
         ) : isNodeMemorial ? (
-          <NodeMemorialDialog node={currentNode} onClose={close} />
+          // 终问通过后点击节点：展示思考笔记（用户在各层的回答 + 关键词）
+          <ThinkingNotePage node={currentNode} onClose={close} />
         ) : isFinalQuestion ? (
           <FinalQuestionDialog node={currentNode} onClose={close} />
         ) : (

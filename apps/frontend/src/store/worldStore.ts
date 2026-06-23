@@ -16,6 +16,7 @@ import {
   type NodeProgress,
 } from "../utils/depthGate";
 import { getSessionStatus, type SessionStatus } from "../api/nodes";
+import { useKnowledgeStore } from "./knowledgeStore";
 
 interface WorldState {
   // 当前世界
@@ -362,6 +363,8 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           // 重置进度同时清空会话，下次打开对话框会重新 createSession
           sessionId: null,
         });
+        // 同步清空思考笔记
+        useKnowledgeStore.getState().clearAll();
       },
     }),
     {

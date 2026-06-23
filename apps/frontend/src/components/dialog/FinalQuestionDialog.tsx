@@ -11,6 +11,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useWorldStore } from "../../store/worldStore";
+import { useKnowledgeStore } from "../../store/knowledgeStore";
 import { finalAnswer } from "../../api/nodes";
 import { ApprenticeAvatar } from "./ApprenticeAvatar";
 import { PixelButton } from "../common/PixelButton";
@@ -41,7 +42,8 @@ export const FinalQuestionDialog: React.FC<FinalQuestionDialogProps> = ({
   node,
   onClose,
 }) => {
-  const { setFinalQuestion, setFinalQuestionVerdict, sessionId, unlockNextNode } = useWorldStore();
+  const { setFinalQuestion, setFinalQuestionVerdict, sessionId, unlockNextNode, world } = useWorldStore();
+  const { recordLayer, aggregateNode, generateBook, isBookReady } = useKnowledgeStore();
   const [messages, setMessages] = useState<FinalMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -162,6 +164,8 @@ export const FinalQuestionDialog: React.FC<FinalQuestionDialogProps> = ({
 
     // 记录 verdict 到 store（无论对错）
     setFinalQuestionVerdict(node.id, verdict);
+    // 记录用户终问回答到思考笔记
+    recordLayer(node.id, "final", userText, comment);
 
     // 不管对错都解锁下一节点（用户可反复回答 NPC 问题）；
     // 只有 correct 时才标记终问完成 + nodeClear（绿色通关）
@@ -169,12 +173,20 @@ export const FinalQuestionDialog: React.FC<FinalQuestionDialogProps> = ({
     if (verdict === "correct") {
       setFinalQuestion(node.id, "completed");
       setNodeCompleted(true);
+      // 聚合节点思考笔记
+      if (world) {
+        aggregateNode(node.id, world);
+        // 全部节点完成 → 生成全书合集
+        if (isBookReady(world)) {
+          generateBook(world);
+        }
+      }
     } else {
       // 未通过 → 保持 finalQuestion="available"，允许重试
       setNeedRetry(true);
     }
     setSubmitting(false);
-  }, [inputText, submitting, typingId, node.id, sessionId, setFinalQuestion, setFinalQuestionVerdict, unlockNextNode]);
+  }, [inputText, submitting, typingId, node.id, sessionId, setFinalQuestion, setFinalQuestionVerdict, unlockNextNode, recordLayer, aggregateNode, generateBook, isBookReady, world]);
 
   /** 再试一次：清空对话，重新展示原始问题 */
   const handleRetry = useCallback(() => {

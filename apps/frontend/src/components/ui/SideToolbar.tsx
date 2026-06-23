@@ -5,12 +5,14 @@
  * 每个按钮：圆角矩形 + 图标 + 中文标签
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useWorldStore } from "../../store/worldStore";
 import { useDialogStore } from "../../store/dialogStore";
 import { useBgmStore } from "../../store/bgmStore";
+import { useKnowledgeStore } from "../../store/knowledgeStore";
 import { LAYER_ORDER } from "../../constants/biome";
 import { getDepthGateStatus } from "../../utils/depthGate";
+import { MyBookPage } from "../dialog/MyBookPage";
 import type { LayerType } from "../../types/world";
 
 interface ToolItem {
@@ -78,6 +80,8 @@ export const SideToolbar: React.FC = () => {
   const { world, currentDepth, switchDepth, nodeProgress, resetProgress } = useWorldStore();
   const { close } = useDialogStore();
   const { isPlaying, pause, resume } = useBgmStore();
+  const { isBookReady } = useKnowledgeStore();
+  const [showBook, setShowBook] = useState(false);
 
   const handleSwitch = useCallback(
     (depth: LayerType) => {
@@ -100,24 +104,33 @@ export const SideToolbar: React.FC = () => {
     ? getDepthGateStatus(next, currentDepth, nodeProgress, world) === "locked"
     : true;
 
+  const bookReady = world ? isBookReady(world) : false;
+
   return (
-    <div
-      style={{
-        position: "absolute",
-        right: 16,
-        bottom: 16,
-        zIndex: 50,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <ToolButton icon="🧭" label="探索" title="探索" />
-        <ToolButton icon="📒" label="笔记" title="笔记" />
-        <ToolButton icon="🔍" label="观察" title="观察" />
-        <ToolButton icon="⚙️" label="设置" title="设置" />
-      </div>
+    <>
+      {showBook && <MyBookPage onClose={() => setShowBook(false)} />}
+      <div
+        style={{
+          position: "absolute",
+          right: 16,
+          bottom: 16,
+          zIndex: 50,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <ToolButton icon="🧭" label="探索" title="探索" />
+          <ToolButton
+            icon={bookReady ? "📖" : "📒"}
+            label={bookReady ? "我的书" : "笔记"}
+            title={bookReady ? "查看《我的〈人类简史〉》" : "笔记"}
+            onClick={bookReady ? () => setShowBook(true) : undefined}
+          />
+          <ToolButton icon="🔍" label="观察" title="观察" />
+          <ToolButton icon="⚙️" label="设置" title="设置" />
+        </div>
 
       <div
         style={{
@@ -168,7 +181,8 @@ export const SideToolbar: React.FC = () => {
           }
         }}
       />
-    </div>
+      </div>
+    </>
   );
 };
 
