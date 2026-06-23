@@ -219,8 +219,8 @@ export const sapiensWorld: World = {
         avatar: "/nodes/npc_scribe.png",
       },
       positions: { what: { x: 1000, y: 750 }, how: { x: 950, y: 160 }, why: { x: 954, y: 700 }, system: { x: 954, y: 655 } },
-      neighbors: ["n_money", "n_empire"],
-      nextDiscoveryId: "n_empire",
+      neighbors: ["n_money", "n_capitalism"],
+      nextDiscoveryId: "n_capitalism",
       sourceExcerpt:
         "国家、公司、法律——这些\"想象的秩序\"并非客观存在，但数十亿人共同相信它们存在，从而让大规模协作成为可能。",
       introScene: {
@@ -270,7 +270,71 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 5: 帝国 ────────────────────────────────────────────────────
+    // ── What 5: 资本与科学联姻 ──────────────────────────────────────────
+    {
+      id: "n_capitalism",
+      name: "资本与科学联姻",
+      icon: "/nodes/node_coin.png",
+      iconNpc: "/nodes/npc_priest.png",
+      mysteryQuestion: "为什么信用让远征成为可能？",
+      gateNpc: {
+        id: "gate_capitalist",
+        title: "银行家",
+        avatar: "/nodes/node_coin.png",
+      },
+      positions: { what: { x: 1400, y: 200 }, how: { x: 1650, y: 500 }, why: { x: 1200, y: 300 }, system: { x: 1811, y: 605 } },
+      neighbors: ["n_imagined_order", "n_empire"],
+      nextDiscoveryId: "n_empire",
+      sourceExcerpt:
+        "信用让远征成为可能，远征带来新数据，新数据滋养科学，再转化为更多资本。资本与科学的联姻形成了现代世界的核心引擎。",
+      introScene: {
+        sceneText: "银行的账本上写满了远航计划。投资者相信这些计划会带回财富，于是掏钱资助船只。船只出发，带回了新物种、新矿产、新市场——账本上的数字变成了真实的金银。",
+        visualHint: "market_trade",
+        durationSec: 6,
+        trigger: "first_enter_what",
+        state: "unseen",
+      },
+      whatCards: [
+        {
+          type: "definition",
+          text: "资本主义是一种经济秩序，其中利润的再投资被视为扩大生产的主要驱动力，以私有财产和自由市场为核心。",
+        },
+        {
+          type: "example",
+          text: "哥伦布的远航由西班牙王室和热那亚商人资助；现代科技公司通过IPO和风险投资获得扩张资本。",
+        },
+        {
+          type: "bridge",
+          text: "资本主义的\"信用—投资—回报\"循环与科学的\"假设—验证—应用\"循环相互强化，共同驱动了工业革命和数字化时代。",
+        },
+      ],
+      mentorPrompts: {
+        whatIntro: "资本和科学看起来是两回事，但它们如何相互依存？",
+        whatDialogue: [
+          { speaker: "scholar", text: "规则写在纸上就有约束力，这我平时不觉得奇怪。但仔细一想……合同里写的字凭什么让我还钱呢？" },
+          { speaker: "mentor", text: "因为整个社会都承认这个规则。但你有没有想过更古怪的？——公司有财产、能签合同、能起诉你，但公司本身没有身体，没有脑子。它是个'法律虚构的人'。" },
+          { speaker: "scholar", text: "法律虚构的人……就是说公司跟真人一样有权利，但它不是真人？" },
+          { speaker: "mentor", text: "对。股票、商标、专利，甚至你今天用的APP背后，都是这种'人造人'在运作。现代世界的底层代码，就是这些法律虚构。" },
+          { speaker: "mentor", text: "法律比刀剑更有力量——因为刀剑只能管住人，而法律能管住想象。" },
+        ],
+        whatScrolls: [
+          { type: "definition", title: "资本主义的核心", content: "资本主义的核心创新不是赚钱，是把\u201c增长\u201d变成了一种社会义务。你不只是为了赚钱，你必须赚更多的钱。这个规则驱动了整个现代世界的运转。", mentorVoice: "这张卷轴的定义有点反直觉：资本主义的核心不是赚钱，是\u201c必须增长\u201d。这个\u201c必须\u201d二字，才是驱动一切的力量。" },
+          { type: "example", title: "公司：一个虚构的人", content: "公司没有身体，但能拥有财产、签订合同、起诉你。它不生病、不死亡、可以无限扩张。这个法律虚构的\u201c人\u201d，是现代社会最强大的组织形态。", mentorVoice: "看这张卷轴上的奇怪生物——公司。它没有身体，但有权利；不会死，但能拥有财产。它是人类发明的最强大的\u201c人造人\u201d。" },
+          { type: "bridge", title: "你活在法律虚构中", content: "你今天用的App、存的银行、住的房子——背后的所有权都建立在法律虚构之上。资本主义的本质不是什么经济理论，而是一套所有人相信的\u201c纸上规则\u201d。", mentorVoice: "最后这张卷轴掀开了现代生活的底牌：你的工资、房贷、股票，全是建立在\u201c法律虚构\u201d之上的。它们和古代的神明一样——信则有。" },
+        ],
+        whatWrapUp: [
+          { speaker: "scholar", text: "所以公司是一个\u201c人造人\u201d……那整个经济体系就是一群人造人在一张纸上的规则里运转？" },
+          { speaker: "mentor", text: "你抓住了本质。选一张最关键的卷轴，我们继续往下拆。" },
+        ],
+        how: "资本主义的经济循环是如何运作的？",
+        why: "为什么「信用」这个「想象的秩序」能驱动真实世界的行动？",
+        system: "从工业革命到人工智能，资本与科学联姻的模式如何演化？",
+        finalReturn: "你已经从多个角度审视了资本与科学的关系。回到最初的问题：为什么信用让远征成为可能？",
+      },
+      finalQuestion: { source: "mysteryQuestion", state: "locked" },
+    },
+
+    // ── What 6: 帝国 ────────────────────────────────────────────────────
     {
       id: "n_empire",
       name: "帝国的崛起",
@@ -283,7 +347,7 @@ export const sapiensWorld: World = {
         avatar: "/nodes/npc_emperor.png",
       },
       positions: { what: { x: 1130, y: 500 }, how: { x: 1150, y: 300 }, why: { x: 1100, y: 600 }, system: { x: 1263, y: 679 } },
-      neighbors: ["n_imagined_order", "n_sci_rev"],
+      neighbors: ["n_capitalism", "n_sci_rev"],
       nextDiscoveryId: "n_sci_rev",
       sourceExcerpt:
         "帝国通过军事力量征服领土，但最终往往被被征服者的文化所同化——征服者接受了被征服者的语言、宗教和习俗。",
@@ -334,7 +398,7 @@ export const sapiensWorld: World = {
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },
 
-    // ── What 6: 科学革命 ───────────────────────────────────────────────
+    // ── What 7: 科学革命 ───────────────────────────────────────────────
     {
       id: "n_sci_rev",
       name: "科学革命",
@@ -347,8 +411,8 @@ export const sapiensWorld: World = {
         avatar: "/nodes/npc_astronomer.png",
       },
       positions: { what: { x: 1250, y: 340 }, how: { x: 1400, y: 394 }, why: { x: 1100, y: 400 }, system: { x: 1544, y: 592 } },
-      neighbors: ["n_empire", "n_capitalism"],
-      nextDiscoveryId: "n_capitalism",
+      neighbors: ["n_empire"],
+      nextDiscoveryId: null,
       sourceExcerpt:
         "科学革命的关键不是获得新知识，而是承认自己的无知，并以观察与数学系统地填补认知空白。",
       introScene: {
@@ -394,70 +458,6 @@ export const sapiensWorld: World = {
         why: "为什么现代科学出现在欧洲而不是其他文明？",
         system: "科学革命如何与资本主义和帝国主义相互强化？",
         finalReturn: "你已经从四个角度审视了科学革命。回到最初的问题：为什么承认无知反而带来力量？",
-      },
-      finalQuestion: { source: "mysteryQuestion", state: "locked" },
-    },
-
-    // ── What 7: 资本与科学联姻 ──────────────────────────────────────────
-    {
-      id: "n_capitalism",
-      name: "资本与科学联姻",
-      icon: "/nodes/node_coin.png",
-      iconNpc: "/nodes/npc_priest.png",
-      mysteryQuestion: "为什么信用让远征成为可能？",
-      gateNpc: {
-        id: "gate_capitalist",
-        title: "银行家",
-        avatar: "/nodes/node_coin.png",
-      },
-      positions: { what: { x: 1400, y: 200 }, how: { x: 1650, y: 500 }, why: { x: 1200, y: 300 }, system: { x: 1811, y: 605 } },
-      neighbors: ["n_sci_rev"],
-      nextDiscoveryId: null,
-      sourceExcerpt:
-        "信用让远征成为可能，远征带来新数据，新数据滋养科学，再转化为更多资本。资本与科学的联姻形成了现代世界的核心引擎。",
-      introScene: {
-        sceneText: "银行的账本上写满了远航计划。投资者相信这些计划会带回财富，于是掏钱资助船只。船只出发，带回了新物种、新矿产、新市场——账本上的数字变成了真实的金银。",
-        visualHint: "market_trade",
-        durationSec: 6,
-        trigger: "first_enter_what",
-        state: "unseen",
-      },
-      whatCards: [
-        {
-          type: "definition",
-          text: "资本主义是一种经济秩序，其中利润的再投资被视为扩大生产的主要驱动力，以私有财产和自由市场为核心。",
-        },
-        {
-          type: "example",
-          text: "哥伦布的远航由西班牙王室和热那亚商人资助；现代科技公司通过IPO和风险投资获得扩张资本。",
-        },
-        {
-          type: "bridge",
-          text: "资本主义的\"信用—投资—回报\"循环与科学的\"假设—验证—应用\"循环相互强化，共同驱动了工业革命和数字化时代。",
-        },
-      ],
-      mentorPrompts: {
-        whatIntro: "资本和科学看起来是两回事，但它们如何相互依存？",
-        whatDialogue: [
-          { speaker: "scholar", text: "规则写在纸上就有约束力，这我平时不觉得奇怪。但仔细一想……合同里写的字凭什么让我还钱呢？" },
-          { speaker: "mentor", text: "因为整个社会都承认这个规则。但你有没有想过更古怪的？——公司有财产、能签合同、能起诉你，但公司本身没有身体，没有脑子。它是个'法律虚构的人'。" },
-          { speaker: "scholar", text: "法律虚构的人……就是说公司跟真人一样有权利，但它不是真人？" },
-          { speaker: "mentor", text: "对。股票、商标、专利，甚至你今天用的APP背后，都是这种'人造人'在运作。现代世界的底层代码，就是这些法律虚构。" },
-          { speaker: "mentor", text: "法律比刀剑更有力量——因为刀剑只能管住人，而法律能管住想象。" },
-        ],
-        whatScrolls: [
-          { type: "definition", title: "资本主义的核心", content: "资本主义的核心创新不是赚钱，是把\u201c增长\u201d变成了一种社会义务。你不只是为了赚钱，你必须赚更多的钱。这个规则驱动了整个现代世界的运转。", mentorVoice: "这张卷轴的定义有点反直觉：资本主义的核心不是赚钱，是\u201c必须增长\u201d。这个\u201c必须\u201d二字，才是驱动一切的力量。" },
-          { type: "example", title: "公司：一个虚构的人", content: "公司没有身体，但能拥有财产、签订合同、起诉你。它不生病、不死亡、可以无限扩张。这个法律虚构的\u201c人\u201d，是现代社会最强大的组织形态。", mentorVoice: "看这张卷轴上的奇怪生物——公司。它没有身体，但有权利；不会死，但能拥有财产。它是人类发明的最强大的\u201c人造人\u201d。" },
-          { type: "bridge", title: "你活在法律虚构中", content: "你今天用的App、存的银行、住的房子——背后的所有权都建立在法律虚构之上。资本主义的本质不是什么经济理论，而是一套所有人相信的\u201c纸上规则\u201d。", mentorVoice: "最后这张卷轴掀开了现代生活的底牌：你的工资、房贷、股票，全是建立在\u201c法律虚构\u201d之上的。它们和古代的神明一样——信则有。" },
-        ],
-        whatWrapUp: [
-          { speaker: "scholar", text: "所以公司是一个\u201c人造人\u201d……那整个经济体系就是一群人造人在一张纸上的规则里运转？" },
-          { speaker: "mentor", text: "你抓住了本质。选一张最关键的卷轴，我们继续往下拆。" },
-        ],
-        how: "资本主义的经济循环是如何运作的？",
-        why: "为什么「信用」这个「想象的秩序」能驱动真实世界的行动？",
-        system: "从工业革命到人工智能，资本与科学联姻的模式如何演化？",
-        finalReturn: "你已经从多个角度审视了资本与科学的关系。回到最初的问题：为什么信用让远征成为可能？",
       },
       finalQuestion: { source: "mysteryQuestion", state: "locked" },
     },

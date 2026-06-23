@@ -168,19 +168,21 @@ export const FinalQuestionDialog: React.FC<FinalQuestionDialogProps> = ({
     recordLayer(node.id, "final", userText, comment);
 
     // 不管对错都解锁下一节点（用户可反复回答 NPC 问题）；
-    // 只有 correct 时才标记终问完成 + nodeClear（绿色通关）
+    // 只有 correct 时才标记终问完成 + nodeClear（绿色通关）。
+    // 注意：setFinalQuestion("completed") 必须在用户点"继续探索"按钮时才调用，
+    // 否则 DialogBox 会立即卸载 FinalQuestionDialog 换成 ThinkingNotePage，
+    // 用户看不到 NPC 的评价消息。
     unlockNextNode(node.id);
     if (verdict === "correct") {
-      setFinalQuestion(node.id, "completed");
-      setNodeCompleted(true);
-      // 聚合节点思考笔记
+      // 节点笔记聚合 + 全书合集生成：与 finalQuestion 状态解耦，立即执行
       if (world) {
         aggregateNode(node.id, world);
-        // 全部节点完成 → 生成全书合集
         if (isBookReady(world)) {
           generateBook(world);
         }
       }
+      // 仅设置内部完成状态，外部 finalQuestion 状态延迟到 onClose
+      setNodeCompleted(true);
     } else {
       // 未通过 → 保持 finalQuestion="available"，允许重试
       setNeedRetry(true);
@@ -477,8 +479,16 @@ export const FinalQuestionDialog: React.FC<FinalQuestionDialogProps> = ({
             padding: "8px 0",
           }}
         >
-          <PixelButton onClick={onClose} variant="success">
-            继续探索
+          <PixelButton
+            onClick={() => {
+              // 标记 finalQuestion 完成 → DialogBox 重新渲染时切到 ThinkingNotePage
+              // 注意：不要调 onClose（那会让 currentNode=null、DialogBox 不渲染），
+              // 让 DialogBox 根据 finalQuestion="completed" 自动切到 ThinkingNotePage
+              setFinalQuestion(node.id, "completed");
+            }}
+            variant="success"
+          >
+            查看我的笔记 →
           </PixelButton>
         </div>
       )}

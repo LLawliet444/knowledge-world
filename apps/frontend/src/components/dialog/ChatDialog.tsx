@@ -94,6 +94,9 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
   // 否则 fqState 立即变 available 会导致 DialogBox 卸载 ChatDialog 换成 FinalQuestionDialog，
   // 评估内容和层切换动画都来不及展示
   const pendingFinalQuestion = useRef<string | null>(null);
+  // 延迟标记 completed 的层：不能在 processAnswerResponse 中立即 updateNodeDepthState，
+  // 否则 isLayerCleared 立即变 true，DialogBox 卸载 ChatDialog，pendingSwitch 丢失
+  const pendingCompletedLayer = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // 防止 StrictMode 双重挂载导致 initSession 重复执行
   const initRef = useRef(false);
@@ -166,29 +169,55 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
   useEffect(() => {
     if (!pendingSwitch) return;
     // 还在打字中，等打字完
-    if (typingId !== null) return;
+    if (typingId !== null) {
+      console.log("[ChatDialog] pendingSwitch useEffect: 等待打字完成", { pendingSwitch, typingId });
+      return;
+    }
     // 确认所有 mentor 消息都已打完
     const allTyped = messages.every((m) => m.role !== "mentor" || m.typed);
-    if (!allTyped) return;
+    if (!allTyped) {
+      console.log("[ChatDialog] pendingSwitch useEffect: 消息未全部打完", { pendingSwitch, allTyped });
+      return;
+    }
+    console.log("[ChatDialog] pendingSwitch useEffect: 触发 2.5s 延迟切换", { pendingSwitch });
 
     const timer = setTimeout(() => {
       const target = pendingSwitch;
       setPendingSwitch(null);
-      // isLoopBack 场景：对话框关闭前设置终问 available，
-      // 这样切换到 what 层后用户点击 NPC 会进入 FinalQuestionDialog
+      // 先关对话框 + 切地图：onClose 卸载 ChatDialog、switchDepth 触发 DepthTransitionVideo
+      // 注意：必须先 onClose 再 updateNodeDepthState，
+      // 否则 isLayerCleared=true 会让 DialogBox 卸载 ChatDialog 换成 LayerClearanceDialog，
+      // switchDepth 永远不会被调用。
+      // 终问设置在 onClose 前完成（isLoopBack 场景需要对话框关闭后新层终问已就绪）
       if (pendingFinalQuestion.current) {
         setFinalQuestion(pendingFinalQuestion.current, "available");
         pendingFinalQuestion.current = null;
       }
-      // 节点状态已在 handleSend 中解锁，这里只负责关闭对话框 + 切换地图
+      console.log("[ChatDialog] 执行层切换", { target, currentDepth: useWorldStore.getState().currentDepth });
       onClose();
       switchDepth(target as LayerType);
+      // 标记当前层 completed：此时 ChatDialog 已卸载，isLayerCleared 变化不再影响 UI
+      if (pendingCompletedLayer.current) {
+        updateNodeDepthState(node.id, pendingCompletedLayer.current as LayerType, "completed");
+        pendingCompletedLayer.current = null;
+      }
     }, 2500);
     return () => clearTimeout(timer);
-  }, [pendingSwitch, typingId, messages, onClose, switchDepth, setFinalQuestion]);
+  }, [pendingSwitch, typingId, messages, onClose, switchDepth, setFinalQuestion, updateNodeDepthState, node.id]);
 
   // 处理 answer 接口响应：抽取为共享逻辑，供 handleSend 与 initSession 补提交复用
   const processAnswerResponse = useCallback((res: AnswerResponse) => {
+    console.log("[ChatDialog] processAnswerResponse", {
+      can_advance: res.can_advance,
+      node_completed: res.node_completed,
+      current_layer: res.current_layer,
+      current_round: res.current_round,
+      has_evaluation: !!res.evaluation,
+      eval_can_advance: res.evaluation?.can_advance,
+      has_teaching: !!res.teaching_content,
+      ui_currentLayer: currentLayer,
+      isFinalQuestion,
+    });
     const tcContent = res.teaching_content;
     const evalResult = res.evaluation;
 
@@ -224,11 +253,20 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
       // system 是最后一层，can_advance 后循环回 what（回到起点解答初始问题）
       const targetLayer = nextLayerOf(currentLayer);
       const isLoopBack = currentLayer === "system" && targetLayer === "what";
+      console.log("[ChatDialog] can_advance=true 分支", {
+        currentLayer,
+        targetLayer,
+        isLoopBack,
+      });
       const oldLayerLabel = LAYER_LABELS[currentLayer] ?? currentLayer;
       const newLayerLabel = targetLayer
         ? (LAYER_LABELS[targetLayer] ?? targetLayer)
         : oldLayerLabel;
-      updateNodeDepthState(node.id, currentLayer as LayerType, "completed");
+      // 不立即 updateNodeDepthState(currentLayer, "completed")：
+      // 否则 DialogBox 的 isLayerCleared 立即变 true，会卸载 ChatDialog 换成 LayerClearanceDialog，
+      // 导致 pendingSwitch 丢失、switchDepth 永远不被调用。
+      // 改为延迟到 timer 回调中执行（见 pendingSwitch useEffect）。
+      pendingCompletedLayer.current = currentLayer;
       if (targetLayer && !isLoopBack) {
         updateNodeDepthState(node.id, targetLayer, "available");
       }
@@ -437,6 +475,14 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
 
     try {
       const res = await answerNode(sessionId!, node.id, userText);
+      console.log("[ChatDialog] answerNode 返回", {
+        can_advance: res.can_advance,
+        node_completed: res.node_completed,
+        current_layer: res.current_layer,
+        current_round: res.current_round,
+        session_id: res.session_id,
+        isFallback: res.session_id === "",
+      });
       processAnswerResponse(res);
       // 记录用户回答到思考笔记（how/why/system 层）
       const aiFeedback = res.evaluation?.reason

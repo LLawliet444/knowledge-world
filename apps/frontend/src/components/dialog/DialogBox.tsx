@@ -15,7 +15,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useDialogStore, type MentorDialogueLine } from "../../store/dialogStore";
 import { useWorldStore } from "../../store/worldStore";
-import { WhatCards } from "./WhatCards";
 import { ChatDialog } from "./ChatDialog";
 import { FinalQuestionDialog } from "./FinalQuestionDialog";
 import { NodeMemorialDialog } from "./NodeMemorialDialog";
@@ -356,15 +355,6 @@ export const DialogBox: React.FC = () => {
                     {isLastLine ? "点击进入翻卡 →" : "点击继续对话 ▼"}
                   </div>
                 </div>
-              )}
-
-              {/* What 翻卡 */}
-              {(phase === "reading" || phase === "what_confirm") && (
-                <WhatCards
-                  cards={currentNode.whatCards}
-                  mentorIntro={currentNode.mentorPrompts.whatIntro}
-                  onComplete={handleWhatComplete}
-                />
               )}
             </div>
           </div>

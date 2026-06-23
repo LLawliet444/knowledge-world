@@ -201,12 +201,14 @@ export const useWorldStore = create<WorldState & WorldActions>()(
 
       switchDepth: (depth) => {
         const { currentDepth } = get();
+        console.log("[worldStore] switchDepth", { depth, currentDepth, equal: depth === currentDepth });
         if (depth === currentDepth) return;
         set({ isSwitchingDepth: true, switchingTargetDepth: depth });
       },
 
       finishDepthSwitch: () => {
         const { switchingTargetDepth, world, nodeProgress } = get();
+        console.log("[worldStore] finishDepthSwitch", { switchingTargetDepth, hasWorld: !!world });
         if (!switchingTargetDepth || !world) return;
         const start = world.scholarStartByDepth[switchingTargetDepth];
 
@@ -316,9 +318,13 @@ export const useWorldStore = create<WorldState & WorldActions>()(
             if (layerIdx >= 1) cur.introScene = "seen";
           }
           // 节点全部完成：当前节点 system completed + finalQuestion 开启
+          // 注意：若 history 中已标记 finalQuestion="completed"（终问已通过），
+          // 不要覆盖为 available，否则刷新后会再次要求回答终问
           if (status.nodeCompleted && cur) {
             cur.system = "completed";
-            cur.finalQuestion = "available";
+            if (cur.finalQuestion !== "completed") {
+              cur.finalQuestion = "available";
+            }
           }
         }
 

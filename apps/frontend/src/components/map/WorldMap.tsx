@@ -56,6 +56,18 @@ export const WorldMap: React.FC<{ onNodeClick?: (node: WorldNode) => void }> = (
       : undefined;
   const isVideoTransition = !!transitionVideoUrl;
 
+  // 调试：层切换视频判断
+  useEffect(() => {
+    if (isSwitchingDepth) {
+      console.log("[WorldMap] 层切换视频判断", {
+        currentDepth,
+        switchingTargetDepth,
+        transitionVideoUrl,
+        isVideoTransition,
+      });
+    }
+  }, [isSwitchingDepth, currentDepth, switchingTargetDepth, transitionVideoUrl, isVideoTransition]);
+
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [isWalking, setIsWalking] = useState(false);
   const [scholarDir, setScholarDir] = useState<"idle" | "left" | "right" | "up" | "down">("idle");
