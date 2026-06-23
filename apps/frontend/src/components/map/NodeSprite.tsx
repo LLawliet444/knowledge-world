@@ -161,7 +161,7 @@ const NpcHalo: React.FC<{
   const baseAlpha = isLocked ? 0.5 : 1;
 
   return (
-    <Container x={0} y={50} alpha={baseAlpha}>
+    <Container x={0} y={65} alpha={baseAlpha}>
       {/* 第 1 层：外光晕（大模糊） */}
       <Graphics
         draw={(g) => {
