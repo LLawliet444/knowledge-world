@@ -275,6 +275,13 @@ export const useWorldStore = create<WorldState & WorldActions>()(
               p[layer] = "completed";
             }
           }
+          // 恢复每层通关后的完整记录（对话+信号+得分+总结），
+          // 供点击已通关 NPC 时显示评级摘要
+          for (const [layer, rec] of Object.entries(h.layerRecords ?? {})) {
+            if (layer === "how" || layer === "why" || layer === "system") {
+              p.layerRecords[layer] = rec;
+            }
+          }
           // 节点全部完成 → 终问状态
           if (h.nodeCompleted) {
             p.system = "completed";

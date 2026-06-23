@@ -12,6 +12,7 @@
  */
 
 import type { World, WorldNode, LayerType, DepthState } from "../types/world";
+import type { LayerRecord } from "../types/feedback";
 
 export interface NodeProgress {
   what: DepthState;
@@ -24,6 +25,12 @@ export interface NodeProgress {
   /** 终问最近一次评价：correct / partial / incorrect / ""（未作答） */
   finalQuestionVerdict: "correct" | "partial" | "incorrect" | "";
   nodeClear: boolean;
+  /**
+   * 各层通关后的完整记录（对话+信号+得分+总结）。
+   * 从后端 /status 恢复时填入，buildInitialProgress 时为空。
+   * key 是 how/why/system（终问记录存放在 finalQuestionVerdict，不在此处）。
+   */
+  layerRecords: Partial<Record<Exclude<LayerType, "what">, LayerRecord>>;
 }
 
 /** 初始进度：所有节点 What 层为 available（startNode），其余为 locked */
@@ -40,6 +47,7 @@ export function buildInitialProgress(world: World): Record<string, NodeProgress>
       finalQuestion: "locked",
       finalQuestionVerdict: "",
       nodeClear: false,
+      layerRecords: {},
     };
   }
   return progress;

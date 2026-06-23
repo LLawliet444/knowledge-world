@@ -19,6 +19,7 @@ import { WhatCards } from "./WhatCards";
 import { ChatDialog } from "./ChatDialog";
 import { FinalQuestionDialog } from "./FinalQuestionDialog";
 import { NodeMemorialDialog } from "./NodeMemorialDialog";
+import { LayerClearanceDialog } from "./LayerClearanceDialog";
 import { ScholarLoading } from "./ScholarLoading";
 import type { WhatCard } from "../../types/world";
 
@@ -42,6 +43,12 @@ export const DialogBox: React.FC = () => {
   const fqState = currentNode ? nodeProgress?.[currentNode.id]?.finalQuestion : undefined;
   const isFinalQuestion = fqState === "available" || fqState === "completed";
   const isNodeMemorial = fqState === "completed";
+
+  // 已通关评级：how/why/system 层状态为 completed 时，不重做对话，
+  // 只展示该层通关记录（评分 + 行为信号 + 老学者评语）。
+  const depthState = currentNode ? nodeProgress?.[currentNode.id]?.[depth] : undefined;
+  const isLayerCleared =
+    depth !== "what" && depthState === "completed";
 
   // mentor_intro 阶段：当前对话行索引
   const [mentorLineIdx, setMentorLineIdx] = useState(0);
@@ -200,7 +207,7 @@ export const DialogBox: React.FC = () => {
     <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4 pointer-events-none">
       <div className="pointer-events-auto w-full max-w-5xl relative mt-6" style={boardStyle}>
         <div style={titleRibbonStyle}>
-          📜 {currentNode.gateNpc.title} · {isNodeMemorial ? "通关纪念" : isFinalQuestion ? "原问回响" : depthLabel}
+          📜 {currentNode.gateNpc.title} · {isLayerCleared ? "通关评级" : isNodeMemorial ? "通关纪念" : isFinalQuestion ? "原问回响" : depthLabel}
         </div>
         <div style={goldInnerFrameStyle} />
 
@@ -359,6 +366,13 @@ export const DialogBox: React.FC = () => {
               )}
             </div>
           </div>
+        ) : isLayerCleared ? (
+          // how/why/system 层通关后再点 NPC：只显示该层通关评级，不重做对话
+          <LayerClearanceDialog
+            node={currentNode}
+            depth={depth as Exclude<typeof depth, "what">}
+            onClose={close}
+          />
         ) : isNodeMemorial ? (
           <NodeMemorialDialog node={currentNode} onClose={close} />
         ) : isFinalQuestion ? (
