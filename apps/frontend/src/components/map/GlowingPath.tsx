@@ -116,39 +116,37 @@ export const GlowingPath: React.FC<GlowingPathProps> = ({
 
   return (
     <>
-      {/* 第 1 层：外光晕（虚线，大模糊） */}
+      {/* 第 1 层：外光晕（圆点，大模糊） */}
       <Graphics
         draw={(g) => {
           g.clear();
           for (const d of dashes) {
             g.beginFill(0xd89030, 0.35);
-            // 虚线段：宽矩形（按段方向旋转）
-            // 简化：直接画大圆/大矩形作为 dash（不旋转，使用矩形更接近像素风）
-            g.drawRect(d.x - dashLen / 2 - 4, d.y - 6, dashLen + 8, 12);
+            g.drawCircle(d.x, d.y, 10);
             g.endFill();
           }
         }}
         filters={[new BlurFilter(12)]}
       />
-      {/* 第 2 层：中光晕（虚线，中模糊） */}
+      {/* 第 2 层：中光晕（圆点，中模糊） */}
       <Graphics
         draw={(g) => {
           g.clear();
           for (const d of dashes) {
             g.beginFill(0xf5b840, 0.6);
-            g.drawRect(d.x - dashLen / 2 - 2, d.y - 4, dashLen + 4, 8);
+            g.drawCircle(d.x, d.y, 6);
             g.endFill();
           }
         }}
         filters={[new BlurFilter(5)]}
       />
-      {/* 第 3 层：亮核心（虚线，锐利） */}
+      {/* 第 3 层：亮核心（圆点，锐利） */}
       <Graphics
         draw={(g) => {
           g.clear();
           for (const d of dashes) {
             g.beginFill(0xfff2c0, 0.95);
-            g.drawRect(d.x - dashLen / 2, d.y - 2, dashLen, 4);
+            g.drawCircle(d.x, d.y, 3);
             g.endFill();
           }
         }}
