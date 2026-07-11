@@ -4,18 +4,17 @@
 export interface TeachingContent {
   /**
    * 内容格式：
-   * - "guided_question" (how 层)：使用 opening / core_question / thinking_direction
-   * - "essence"         (why 层)：使用 content
-   * - "model"           (system 层)：使用 content
+   * - "essence" (how/why 层)：使用 content
+   * - "model"   (system 层)：使用 content
    */
-  format: "guided_question" | "essence" | "model";
-  /** how 层：开场引导语；why/system 层：null */
+  format: "essence" | "model";
+  /** 已废弃，保留兼容 */
   opening: string | null;
-  /** how 层：核心问题；why/system 层：null */
+  /** 已废弃，保留兼容 */
   core_question: string | null;
-  /** how 层：1 个思考方向；why/system 层：null */
+  /** 已废弃，保留兼容 */
   thinking_direction: string | null;
-  /** why/system 层：教学内容文本；how 层：null */
+  /** 教学内容文本 */
   content: string | null;
 }
 
@@ -29,6 +28,7 @@ export interface Evaluation {
 /** 创建会话响应 */
 export interface SessionResponse {
   session_id: string;
+  secret_token: string;
 }
 
 /** 对话历史中的一条消息（enter 接口返回，前端用于恢复完整聊天历史） */

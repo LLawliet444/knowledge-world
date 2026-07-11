@@ -52,16 +52,6 @@ function tc(t: TeachingContent | null): TeachingContent | undefined {
 
 /** 把 TeachingContent 渲染成可显示的纯文本 */
 function teachingToText(t: TeachingContent): string {
-  if (t.format === "guided_question") {
-    const parts: string[] = [];
-    if (t.opening) parts.push(t.opening);
-    if (t.core_question) parts.push(`【核心问题】\n${t.core_question}`);
-    if (t.thinking_direction) {
-      parts.push(`【思考方向】\n${t.thinking_direction}`);
-    }
-    return parts.join("\n\n");
-  }
-  // essence / model 层直接用 content
   return t.content ?? "";
 }
 
@@ -78,7 +68,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
   onClose,
   isFinalQuestion,
 }) => {
-  const { updateNodeDepthState, switchDepth, setFinalQuestion, sessionId: storeSessionId, setSessionId } = useWorldStore();
+  const { updateNodeDepthState, switchDepth, setFinalQuestion, sessionId: storeSessionId, setSessionId, setSessionToken } = useWorldStore();
   const { recordLayer } = useKnowledgeStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -387,6 +377,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         const sess = await createSession();
         sid = sess.session_id;
         setSessionId(sid);
+        setSessionToken(sess.secret_token);
       }
 
       // enter 接口幂等：每次进入节点 UI（how/why/system 任意层）都调，
@@ -433,7 +424,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     } finally {
       setSubmitting(false);
     }
-  }, [node.id, depth, setSessionId, isFinalQuestion, node.mysteryQuestion]);
+  }, [node.id, depth, setSessionId, setSessionToken, isFinalQuestion, node.mysteryQuestion]);
 
   useEffect(() => {
     initSession();
@@ -487,7 +478,6 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
       // 记录用户回答到思考笔记（how/why/system 层）
       const aiFeedback = res.evaluation?.reason
         ?? res.teaching_content?.content
-        ?? res.teaching_content?.core_question
         ?? "";
       recordLayer(node.id, currentLayer as "how" | "why" | "system", userText, aiFeedback);
     } catch {

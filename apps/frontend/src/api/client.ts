@@ -6,6 +6,19 @@
 export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
 
+// 会话鉴权令牌（模块级，由 store 通过 setApiSessionToken 同步）
+let _sessionToken: string | null = null;
+
+/** 设置会话令牌（store 在 createSession / rehydrate 时调用） */
+export function setApiSessionToken(token: string | null) {
+  _sessionToken = token;
+}
+
+/** 获取会话令牌（供直接 fetch 的场景使用，如 getSessionStatus） */
+export function getApiSessionToken(): string | null {
+  return _sessionToken;
+}
+
 async function apiFetch<T>(
   path: string,
   body: unknown,
@@ -19,7 +32,10 @@ async function apiFetch<T>(
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(_sessionToken ? { "X-Session-Token": _sessionToken } : {}),
+      },
       body: method === "GET" ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });

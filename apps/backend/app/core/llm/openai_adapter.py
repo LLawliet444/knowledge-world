@@ -115,7 +115,7 @@ class OpenAIAdapter(LLMAdapter):
             call_type="json_stream",
             message_count=len(messages),
             input_chars=input_chars,
-            messages=messages,
+            # 不记录 messages 原文：含 system prompt（核心资产）与用户对话（敏感）
         )
 
         try:
@@ -190,10 +190,8 @@ class OpenAIAdapter(LLMAdapter):
                 first_reasoning_ms=first_reasoning_ms,
                 first_content_ms=first_content_ms,
                 reasoning_chars=reasoning_chars,
-                reasoning_content=reasoning_content,
+                # 不记录 reasoning_content / output 原文：可能含 system prompt 泄露与用户隐私
                 output_chars=len(content),
-                output=content,
-                output_parsed=parsed,
                 json_keys=list(parsed.keys()) if isinstance(parsed, dict) else None,
             )
             return parsed
@@ -210,7 +208,6 @@ class OpenAIAdapter(LLMAdapter):
                 input_chars=input_chars,
                 message_count=len(messages),
                 reasoning_chars=reasoning_chars if 'reasoning_chars' in locals() else 0,
-                reasoning_content="".join(reasoning_chunks) if 'reasoning_chunks' in locals() else "",
                 content_chars=len(chunks) if 'chunks' in locals() else 0,
             )
             raise TimeoutError(f"LLM call timed out after {settings.llm_timeout_seconds}s")
@@ -223,9 +220,9 @@ class OpenAIAdapter(LLMAdapter):
                 call_type="json_stream",
                 latency_ms=latency_ms,
                 error=str(e),
-                raw_output=content[:500] if 'content' in locals() and content else "",
+                # 不记录 raw_output / reasoning_content 原文，避免泄露 prompt 与用户隐私
+                output_chars=len(content) if 'content' in locals() and content else 0,
                 reasoning_chars=reasoning_chars if 'reasoning_chars' in locals() else 0,
-                reasoning_content="".join(reasoning_chunks)[:1000] if 'reasoning_chunks' in locals() else "",
             )
             raise
         except Exception as e:

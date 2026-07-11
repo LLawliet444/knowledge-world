@@ -44,19 +44,10 @@ export function preloadPixiTextures(
   // 节点章节图标（地图上显示的主 icon）
   for (const p of iconPaths) paths.add(p);
 
-  // 场景背景 + focus symbol
-  const SCENE_BG_MAP: Record<string, string> = {
-    cave_fire: "cave_bg.png",
-    empire_gate: "empire_bg.png",
-    grain_field: "field_bg.png",
-    market_trade: "market_bg.png",
-    stargazing: "stargazing_bg.png",
-    stone_law: "stone_bg.png",
-    temple_myth: "temple_bg.png",
-  };
+  // 场景 focus symbol（节点章节图标）
+  // 注意：scenes/{key}/{key}_bg.png 在 assets 中不存在；
+  // ScenePlayer 使用 /video_background/screen_*_background.png（React <img>，无需 PIXI preload）
   for (const key of sceneKeys) {
-    const bgFile = SCENE_BG_MAP[key];
-    if (bgFile) paths.add(`/scenes/${key}/${bgFile}`);
     paths.add(`/scenes/${key}/focus_symbol.png`);
   }
 

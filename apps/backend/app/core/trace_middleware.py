@@ -1,4 +1,3 @@
-import json
 import time
 
 import structlog
@@ -7,16 +6,6 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.core.trace import get_trace_id, new_trace_id, set_trace_id
 
 logger = structlog.get_logger()
-
-
-def _safe_json_parse(text: str):
-    """尝试解析 JSON，失败则返回原始字符串"""
-    if not text:
-        return None
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        return text
 
 
 class TraceMiddleware:
@@ -107,7 +96,8 @@ class TraceMiddleware:
             if query_string
             else None,
             client=client_host,
-            request_body=_safe_json_parse(request_body_text) if request_body_text else None,
+            # 仅记录请求体长度，不记录原文：answer/final-answer 含用户对话（敏感）
+            request_body_chars=len(request_body_text) if request_body_text else 0,
         )
 
         # 4. 拦截响应，缓存 status_code 和 body，并注入 X-Trace-Id 响应头
@@ -160,5 +150,6 @@ class TraceMiddleware:
             status_code=response_status[0],
             duration_ms=duration_ms,
             client=client_host,
-            response_body=_safe_json_parse(response_body_text) if response_body_text else None,
+            # 仅记录响应体长度，不记录原文：响应含 LLM 生成的教学内容（敏感）
+            response_body_chars=len(response_body_text) if response_body_text else 0,
         )

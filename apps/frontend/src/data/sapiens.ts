@@ -18,13 +18,13 @@ export const sapiensWorld: World = {
     {
       id: "n_cog_rev",
       name: "认知革命",
-      icon: "/nodes/node_cave_painting.png",
-      iconNpc: "/nodes/npc_storyteller.png",
+      icon: "/scenes/cave_fire/focus_symbol.png",
+      iconNpc: "/scenes/cave_fire/gate_npc.png",
       mysteryQuestion: "是什么让智人和其他动物不同？",
       gateNpc: {
         id: "gate_storyteller",
         title: "讲故事的人",
-        avatar: "/nodes/npc_storyteller.png",
+        avatar: "/scenes/cave_fire/gate_npc.png",
       },
       positions: { what: { x: 450, y: 750 }, how: { x: 300, y: 300 }, why: { x: 200, y: 780 }, system: { x: 112, y: 630 } },
       neighbors: ["n_agri_rev"],
@@ -82,13 +82,13 @@ export const sapiensWorld: World = {
     {
       id: "n_agri_rev",
       name: "农业革命",
-      icon: "/nodes/node_wheat.png",
-      iconNpc: "/nodes/npc_farmer.png",
+      icon: "/scenes/grain_field/focus_symbol.png",
+      iconNpc: "/scenes/grain_field/gate_npc.png",
       mysteryQuestion: "为什么农民比猎人更累？",
       gateNpc: {
         id: "gate_farmer",
         title: "老农夫",
-        avatar: "/nodes/npc_farmer.png",
+        avatar: "/scenes/grain_field/gate_npc.png",
       },
       positions: { what: { x: 560, y: 600 }, how: { x: 520, y: 210 }, why: { x: 420, y: 769 }, system: { x: 393, y: 654 } },
       neighbors: ["n_money"],
@@ -146,13 +146,13 @@ export const sapiensWorld: World = {
     {
       id: "n_money",
       name: "货币的诞生",
-      icon: "/nodes/node_coin.png",
-      iconNpc: "/nodes/npc_merchant.png",
+      icon: "/scenes/market_trade/focus_symbol.png",
+      iconNpc: "/scenes/market_trade/gate_npc.png",
       mysteryQuestion: "为什么一张纸能买到真实食物？",
       gateNpc: {
         id: "gate_merchant",
         title: "商人",
-        avatar: "/nodes/npc_merchant.png",
+        avatar: "/scenes/market_trade/gate_npc.png",
       },
       positions: { what: { x: 800, y: 650 }, how: { x: 760, y: 100 }, why: { x: 674, y: 786 }, system: { x: 674, y: 681 } },
       neighbors: ["n_agri_rev", "n_imagined_order"],
@@ -216,7 +216,7 @@ export const sapiensWorld: World = {
       gateNpc: {
         id: "gate_scribe",
         title: "石碑书记",
-        avatar: "/nodes/npc_scribe.png",
+        avatar: "/scenes/temple_myth/gate_npc.png",
       },
       positions: { what: { x: 1000, y: 750 }, how: { x: 950, y: 160 }, why: { x: 954, y: 700 }, system: { x: 954, y: 655 } },
       neighbors: ["n_money", "n_capitalism"],
@@ -338,8 +338,8 @@ export const sapiensWorld: World = {
     {
       id: "n_empire",
       name: "帝国的崛起",
-      icon: "/nodes/node_ship.png",
-      iconNpc: "/nodes/npc_emperor.png",
+      icon: "/scenes/empire_gate/focus_symbol.png",
+      iconNpc: "/scenes/empire_gate/gate_npc.png",
       mysteryQuestion: "为什么征服者最后也会被文化改变？",
       gateNpc: {
         id: "gate_emperor",
@@ -402,8 +402,8 @@ export const sapiensWorld: World = {
     {
       id: "n_sci_rev",
       name: "科学革命",
-      icon: "/nodes/node_brain.png",
-      iconNpc: "/nodes/npc_astronomer.png",
+      icon: "/scenes/stargazing/focus_symbol.png",
+      iconNpc: "/scenes/stargazing/gate_npc.png",
       mysteryQuestion: "为什么承认无知反而带来力量？",
       gateNpc: {
         id: "gate_astronomer",

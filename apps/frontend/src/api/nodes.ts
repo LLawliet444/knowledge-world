@@ -16,7 +16,7 @@ import type {
   SessionResponse,
   SessionStatusResponse,
 } from "../types/feedback";
-import { API_BASE, apiFetch } from "./client";
+import { API_BASE, apiFetch, getApiSessionToken } from "./client";
 
 // ── 节点 ID 映射：前端 ID → 后端 ID ─────────────────────────────────────
 //
@@ -55,11 +55,11 @@ const ENTER_FALLBACK: EnterNodeResponse = {
   layer_index: 0,
   total_layers: 3,
   teaching_content: {
-    format: "guided_question",
-    opening: "欢迎来到这一层，让我们一起来推导这个知识点背后的运行机制。",
-    core_question: "用你自己的话解释一下，你是怎么理解这个知识点的？",
-    thinking_direction: "回顾一下这个知识点的核心事实，再想想它背后的运行机制。",
-    content: null,
+    format: "essence",
+    opening: null,
+    core_question: null,
+    thinking_direction: null,
+    content: "欢迎来到这一层，让我们一起来推导这个知识点背后的运行机制。用你自己的话解释一下，你是怎么理解这个知识点的？",
   },
   evaluation: null,
   dialogue_history: [],
@@ -75,11 +75,11 @@ const ANSWER_FALLBACK: AnswerResponse = {
   node_completed: false,
   layer_summary: "",
   teaching_content: {
-    format: "guided_question",
-    opening: "听起来有几分道理，我们再深入想想。",
-    core_question: "这个机制在不同的场景下会有什么不同的表现？",
-    thinking_direction: "换一个场景套用一下这个机制，想想它依赖哪些前提条件。",
-    content: null,
+    format: "essence",
+    opening: null,
+    core_question: null,
+    thinking_direction: null,
+    content: "听起来有几分道理，我们再深入想想。这个机制在不同的场景下会有什么不同的表现？",
   },
   evaluation: null,
 };
@@ -87,7 +87,7 @@ const ANSWER_FALLBACK: AnswerResponse = {
 // ── 公开 API ─────────────────────────────────────────────────────────────
 
 export async function createSession(): Promise<SessionResponse> {
-  const fallback: SessionResponse = { session_id: "sess_fallback" };
+  const fallback: SessionResponse = { session_id: "sess_fallback", secret_token: "" };
   return apiFetch<SessionResponse>(
     "/api/v1/sessions",
     {},
@@ -204,9 +204,10 @@ export async function getSessionStatus(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8001);
   try {
+    const token = getApiSessionToken();
     const res = await fetch(
       `${API_BASE}/api/v1/sessions/${sessionId}/status`,
-      { method: "GET", headers: { "Content-Type": "application/json" }, signal: controller.signal },
+      { method: "GET", headers: { "Content-Type": "application/json", ...(token ? { "X-Session-Token": token } : {}) }, signal: controller.signal },
     );
     clearTimeout(timer);
     if (res.status === 404) {

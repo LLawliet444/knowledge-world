@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from dataclasses import dataclass, field, asdict
 
@@ -5,12 +6,14 @@ from dataclasses import dataclass, field, asdict
 LAYER_ORDER = ["how", "why", "system"]
 MAX_ROUNDS_BEFORE_EVALUATION = 3
 # 滑动窗口：保留最近 N 轮对话（1 轮 = 1 个 AI 问题 + 1 个用户回答）
-DIALOGUE_WINDOW_ROUNDS = 3
+DIALOGUE_WINDOW_ROUNDS = 10
 
 
 @dataclass
 class SessionState:
     session_id: str
+    # 会话鉴权令牌：创建时生成，后续请求需在 X-Session-Token header 携带
+    secret_token: str = ""
     node_id: str | None = None
     current_layer: str | None = None
     current_round: int = 0
@@ -109,6 +112,7 @@ class SessionState:
         """从 Redis 反序列化"""
         return cls(
             session_id=data["session_id"],
+            secret_token=data.get("secret_token", ""),
             node_id=data.get("node_id"),
             current_layer=data.get("current_layer"),
             current_round=data.get("current_round", 0),
@@ -127,4 +131,7 @@ class SessionState:
 
 
 def new_session() -> SessionState:
-    return SessionState(session_id=f"sess_{uuid.uuid4().hex[:12]}")
+    return SessionState(
+        session_id=f"sess_{uuid.uuid4().hex}",
+        secret_token=secrets.token_hex(32),  # 64 字符随机令牌
+    )

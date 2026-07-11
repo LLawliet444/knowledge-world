@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     # session 在 Redis 中的过期时间（秒），默认 7 天
     session_ttl_seconds: int = 7 * 24 * 3600
 
+    # CORS 允许的源（环境变量逗号分隔，如 CORS_ORIGINS=https://a.com,https://b.com）
+    # 生产环境必须改为实际前端域名，不要用 *
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:4173"]
+
+    # 运行环境：development / production
+    # production 下：关闭 reload、关闭 /docs、日志脱敏更严格
+    app_env: str = "development"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -6,9 +6,13 @@ os.environ["TZ"] = "Asia/Shanghai"
 time.tzset()
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
+from app.config import settings
 from app.core.llm.openai_adapter import OpenAIAdapter
 from app.core.llm.prompts import build_final_answer_messages
 from app.core.models.interact import (
@@ -34,23 +38,56 @@ from app.logging_setup import setup_logging
 setup_logging()
 logger = structlog.get_logger()
 
+# 生产环境安全告警：Redis 连接串无密码时提示
+if settings.app_env == "production":
+    if "@" not in settings.redis_url and not settings.redis_url.startswith("rediss://"):
+        logger.warning(
+            "redis_no_auth_in_production",
+            hint="生产环境 Redis 应开启密码认证，REDIS_URL 需含密码（redis://:password@host:port/db）",
+        )
+
 llm = OpenAIAdapter()
 session_manager = SessionManager()
 socratic_engine = SocraticEngine(llm)
+
+_is_prod = settings.app_env == "production"
 
 app = FastAPI(
     title="Knowledge World API",
     description="认知探索系统后端 — 苏格拉底式教学引导 + 状态机管理",
     version="0.3.0",
+    # 生产环境关闭交互式文档，避免暴露接口结构
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
+    openapi_url=None if _is_prod else "/openapi.json",
 )
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Trace-Id", "X-Session-Token"],
 )
 app.add_middleware(TraceMiddleware)
+
+
+def require_session_token(
+    session_id: str,
+    x_session_token: str | None = Header(default=None, alias="X-Session-Token"),
+) -> None:
+    """校验 session 归属：请求头 X-Session-Token 必须与创建时返回的 token 一致。
+
+    防止 IDOR：仅凭 session_id 无法访问他人会话，必须同时持有 secret_token。
+    """
+    state = session_manager.get_session(session_id)
+    if state is None:
+        raise HTTPException(404, "Session not found")
+    if not state.secret_token or state.secret_token != x_session_token:
+        raise HTTPException(401, "Invalid session token")
 
 
 @app.get("/api/v1/health")
@@ -63,9 +100,10 @@ async def health():
     response_model=SessionResponse,
     summary="创建学习会话",
 )
-async def create_session():
+@limiter.limit("5/minute")
+async def create_session(request: Request):
     state = session_manager.create_session()
-    return SessionResponse(session_id=state.session_id)
+    return SessionResponse(session_id=state.session_id, secret_token=state.secret_token)
 
 
 @app.get(
@@ -74,7 +112,8 @@ async def create_session():
     summary="获取会话状态",
     description="前端刷新后调用，恢复当前节点状态和最后一次问答。",
 )
-async def get_session_status(session_id: str):
+@limiter.limit("30/minute")
+async def get_session_status(request: Request, session_id: str, _: None = Depends(require_session_token)):
     state = session_manager.get_session(session_id)
     if state is None:
         raise HTTPException(404, "Session not found")
@@ -127,7 +166,8 @@ async def get_session_status(session_id: str):
     summary="进入节点",
     description="前端完成 what 层后调用。后端加载 node scope，初始化状态机，返回 how 层第一轮。",
 )
-async def enter_node(session_id: str, node_id: str):
+@limiter.limit("10/minute")
+async def enter_node(request: Request, session_id: str, node_id: str, _: None = Depends(require_session_token)):
     logger.info(
         "request_enter_node",
         trace_id=get_trace_id(),
@@ -405,7 +445,8 @@ async def _process_answer(
     summary="提交回答并获取引导",
     description="每次用户回答后调用。后端合并教学+评估，自动推进状态机。",
 )
-async def answer(session_id: str, node_id: str, req: AnswerRequest):
+@limiter.limit("10/minute")
+async def answer(request: Request, session_id: str, node_id: str, req: AnswerRequest, _: None = Depends(require_session_token)):
     logger.info(
         "request_answer",
         trace_id=get_trace_id(),
@@ -429,7 +470,8 @@ async def answer(session_id: str, node_id: str, req: AnswerRequest):
     summary="原问回响：回答原始问题",
     description="system 层全通后，用户回到 what 层回答 NPC 的原始问题。后端调 LLM 判断+点评，标记节点完成。",
 )
-async def final_answer(session_id: str, node_id: str, req: FinalAnswerRequest):
+@limiter.limit("5/minute")
+async def final_answer(request: Request, session_id: str, node_id: str, req: FinalAnswerRequest, _: None = Depends(require_session_token)):
     logger.info(
         "request_final_answer",
         trace_id=get_trace_id(),
@@ -534,4 +576,11 @@ if __name__ == "__main__":
     import uvicorn
 
     # log_config=None：禁用 uvicorn 默认的 dictConfig，避免覆盖 setup_logging() 配置的文件 handler
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True, log_config=None)
+    # 生产环境关闭 reload（reload 是开发模式，有文件监控开销且错误堆栈可能泄露）
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8001,
+        reload=not _is_prod,
+        log_config=None,
+    )

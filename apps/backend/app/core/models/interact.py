@@ -88,6 +88,7 @@ class AnswerResponse(BaseModel):
 
 class SessionResponse(BaseModel):
     session_id: str
+    secret_token: str
 
 
 class NodeHistoryEntry(BaseModel):

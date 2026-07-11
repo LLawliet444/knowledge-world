@@ -16,6 +16,7 @@ import {
   type NodeProgress,
 } from "../utils/depthGate";
 import { getSessionStatus, type SessionStatus } from "../api/nodes";
+import { setApiSessionToken } from "../api/client";
 import { useKnowledgeStore } from "./knowledgeStore";
 
 interface WorldState {
@@ -40,6 +41,9 @@ interface WorldState {
 
   // 后端学习会话 ID（整个学习旅程共享，跨节点跨层）
   sessionId: string | null;
+
+  // 会话鉴权令牌（与 sessionId 配对，请求头 X-Session-Token 携带）
+  sessionToken: string | null;
 }
 
 interface WorldActions {
@@ -91,6 +95,9 @@ interface WorldActions {
   /** 设置后端会话 ID（首次 createSession 后存入，跨节点跨层复用） */
   setSessionId: (id: string) => void;
 
+  /** 设置会话鉴权令牌（createSession 时与 sessionId 配对存入） */
+  setSessionToken: (token: string) => void;
+
   /**
    * 从后端 /status 恢复 UI 状态（刷新页面后调用）。
    * 根据 sessionId 拉取后端状态，重建 nodeProgress / currentDepth。
@@ -115,6 +122,7 @@ export const useWorldStore = create<WorldState & WorldActions>()(
       isSwitchingDepth: false,
       switchingTargetDepth: null,
       sessionId: null,
+      sessionToken: null,
 
       loadWorld: (world) => {
         // 进度真源在后端 Redis，前端始终从初始进度开始；
@@ -240,6 +248,11 @@ export const useWorldStore = create<WorldState & WorldActions>()(
       moveScholar: (x, y) => set({ scholarPos: { x, y } }),
 
       setSessionId: (id) => set({ sessionId: id }),
+
+      setSessionToken: (token) => {
+        set({ sessionToken: token });
+        setApiSessionToken(token);
+      },
 
       restoreSession: async () => {
         const { sessionId, world } = get();
@@ -368,17 +381,27 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           switchingTargetDepth: null,
           // 重置进度同时清空会话，下次打开对话框会重新 createSession
           sessionId: null,
+          sessionToken: null,
         });
+        // 同步清空 API 客户端的令牌
+        setApiSessionToken(null);
         // 同步清空思考笔记
         useKnowledgeStore.getState().clearAll();
       },
     }),
     {
       name: "knowledge-world-progress",
-      // 仅持久化 sessionId：进度真源在后端 Redis，刷新后由 restoreSession 拉取
+      // 持久化 sessionId + sessionToken：进度真源在后端 Redis，刷新后由 restoreSession 拉取
       partialize: (state) => ({
         sessionId: state.sessionId,
+        sessionToken: state.sessionToken,
       }),
+      // rehydrate 后同步令牌到 API 客户端模块变量
+      onRehydrateStorage: () => (state) => {
+        if (state?.sessionToken) {
+          setApiSessionToken(state.sessionToken);
+        }
+      },
     },
   ),
 );

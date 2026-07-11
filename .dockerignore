@@ -1,0 +1,54 @@
+# 通用排除
+.git
+.gitignore
+.DS_Store
+*.md
+!apps/frontend/README.md
+!apps/backend/README.md
+
+# 环境变量与密钥（不进入镜像）
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+apps/backend/logs/
+
+# Node.js
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+apps/frontend/vite.config.js
+apps/frontend/vite.config.d.ts
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 构建产物与临时文件
+*.tmp
+*.bak
+*.log
+
+# 项目内的非必要大文件（提交产物、HTML 原型）
+submission/
+docs/
+create_prompts/
+ask.html
+card.html
+index.html
+index_*_video.html
+pick_card.html

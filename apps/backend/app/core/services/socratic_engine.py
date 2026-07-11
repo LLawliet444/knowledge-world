@@ -18,14 +18,16 @@ logger = structlog.get_logger()
 
 # 各层默认 format，用于 fallback
 _LAYER_FORMAT = {
-    "how": "guided_question",
+    "how": "essence",
     "why": "essence",
     "system": "model",
 }
 
+# 允许的 format 白名单（LLM 输出不在白名单内时回退到该层默认 format）
+_VALID_FORMATS = {"essence", "model"}
+
 # 各 format 期望的非空字段（用于校验 LLM 输出是否合规）
 _EXPECTED_FIELDS = {
-    "guided_question": ["opening", "core_question", "thinking_direction"],
     "essence": ["content"],
     "model": ["content"],
 }
@@ -64,6 +66,17 @@ def _build_teaching_content(
 ) -> TeachingContent:
     """从 LLM 返回的 teaching_content dict 构造 TeachingContent 对象，并校验字段完整性"""
     fmt = tc.get("format") or _LAYER_FORMAT.get(layer, "guided_question")
+    # format 白名单校验：LLM 输出非法值时回退到该层默认 format，防止 prompt 注入篡改输出结构
+    if fmt not in _VALID_FORMATS:
+        logger.warning(
+            "teaching_content_invalid_format",
+            trace_id=trace_id,
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            raw_format=fmt,
+        )
+        fmt = _LAYER_FORMAT.get(layer, "guided_question")
     result = TeachingContent(
         format=fmt,
         opening=tc.get("opening"),

@@ -78,18 +78,19 @@ export const NodeSprite: React.FC<NodeSpriteProps> = ({
     };
   }, [nodeTexture]);
 
-  // NPC 图标和抽象图标用不同缩放
-  // NPC：按纹理实际高度归一化到统一显示高度，避免不同原图尺寸（如 864×1024 vs 256×256）导致显示大小不一
-  // icon（抽象图标）：原图均为 1024×1024，保持固定 scale
-  const NPC_TARGET_HEIGHT = 144; // 与第一个节点（864×1024 × 18/128）一致
+  // NPC 图标和抽象图标用不同缩放，均按纹理实际高度归一化到统一显示高度
+  // NPC（iconNpc，gate_npc 立绘）：目标高度 144，避免不同原图尺寸（864×1024 vs 256×256）显示不一
+  // icon（focus_symbol 章节抽象图标，128×128）：目标高度 64，作为节点小标记
+  const NPC_TARGET_HEIGHT = 144;
+  const ICON_TARGET_HEIGHT = 84;
   const FALLBACK_NPC_SCALE = 18 / 128;
-  const npcScale =
-    textureReady && nodeTexture && nodeTexture.height > 1
-      ? NPC_TARGET_HEIGHT / nodeTexture.height
-      : FALLBACK_NPC_SCALE;
+  const FALLBACK_ICON_SCALE = 84 / 128;
+  const ready = textureReady && nodeTexture && nodeTexture.height > 1;
+  const npcScale = ready ? NPC_TARGET_HEIGHT / nodeTexture.height : FALLBACK_NPC_SCALE;
+  const iconBaseScale = ready ? ICON_TARGET_HEIGHT / nodeTexture.height : FALLBACK_ICON_SCALE;
   const iconScale = isNpcMode
     ? (hover ? npcScale * 1.2 : npcScale)
-    : 12 / 128;
+    : (hover ? iconBaseScale * 1.2 : iconBaseScale);
 
   // NPC 面朝学者：原图均面朝左，学者在节点右侧时镜像翻转
   const flipX = isNpcMode && scholarPos.x > pos.x ? -1 : 1;
