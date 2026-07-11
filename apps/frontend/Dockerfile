@@ -10,7 +10,8 @@ WORKDIR /build
 # 先复制 package.json + lockfile，利用 Docker 层缓存
 COPY apps/frontend/package.json apps/frontend/package-lock.json ./
 
-RUN npm ci
+# 使用 npmmirror 镜像加速（国内服务器）
+RUN npm config set registry https://registry.npmmirror.com && npm ci
 
 # 复制项目根目录（vite.config.ts 的 publicDir: "../../assets" 需要 assets 在根目录）
 # 注意：Dockerfile 的构建上下文（context）必须设为项目根目录

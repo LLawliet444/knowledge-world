@@ -4,6 +4,9 @@
 # ─── 阶段 1：安装依赖 ───────────────────────────────────────────
 FROM python:3.12-slim AS builder
 
+# 使用阿里云 Debian 镜像源（国内服务器加速）
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources
+
 # 安装编译依赖（部分 Python 包需要 gcc）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -13,16 +16,20 @@ WORKDIR /build
 
 # 先复制 requirements 单独安装，利用 Docker 层缓存
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# 使用阿里云 PyPI 镜像加速
+RUN pip install --no-cache-dir --user -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
 
 # ─── 阶段 2：运行时镜像 ─────────────────────────────────────────
 FROM python:3.12-slim
+
+# 使用阿里云 Debian 镜像源
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources
 
 # 从 builder 复制已安装的 Python 依赖
 COPY --from=builder /root/.local /root/.local
 
 # 安装 gunicorn（生产环境多进程管理）
-RUN pip install --no-cache-dir gunicorn
+RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ gunicorn
 
 WORKDIR /app
 
