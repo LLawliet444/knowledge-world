@@ -1,6 +1,8 @@
+from typing import Annotated
+
 from dotenv import load_dotenv
 from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
 
 load_dotenv(".env", override=True)
 
@@ -18,9 +20,8 @@ class Settings(BaseSettings):
     session_ttl_seconds: int = 7 * 24 * 3600
 
     # CORS 允许的源（环境变量逗号分隔，如 CORS_ORIGINS=https://a.com,https://b.com）
-    # 生产环境必须改为实际前端域名，不要用 *
-    # 开发环境同时覆盖 localhost 和 127.0.0.1，避免 host 混用导致 CORS 失败
-    cors_origins: list[str] = [
+    # NoDecode 阻止 pydantic-settings 自动 JSON 解析，交给 field_validator 处理
+    cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:4173",
