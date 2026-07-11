@@ -13,8 +13,8 @@ function resolveApiBase(): string {
     // 开发环境：与页面同 host，避免 127.0.0.1 → localhost 的 CORS 跨源
     return `http://${window.location.hostname}:8001`;
   }
-  // 生产环境默认走相对路径 /api（由 nginx 反向代理到后端）
-  return "/api";
+  // 生产环境：子路径部署，API 走 /knowledge-world/api（由 nginx 反向代理到后端）
+  return "/knowledge-world/api";
 }
 
 export const API_BASE = resolveApiBase();

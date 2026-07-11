@@ -17,9 +17,9 @@ RUN npm ci
 COPY apps/frontend/ ./apps/frontend/
 COPY assets/ ./assets/
 
-# 构建（VITE_API_BASE_URL 设为空，前端走相对路径 /api/*，由 nginx 反代到后端）
+# 构建（NODE_ENV=production 使 vite base 生效为 /knowledge-world/）
 WORKDIR /build/apps/frontend
-RUN VITE_API_BASE_URL="" npm run build
+RUN NODE_ENV=production VITE_API_BASE_URL="" npm run build
 
 # ─── 阶段 2：nginx 托管静态文件 ─────────────────────────────────
 FROM nginx:alpine

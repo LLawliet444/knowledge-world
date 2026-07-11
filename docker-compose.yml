@@ -46,9 +46,9 @@ services:
     container_name: kw-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
-      # 如需 HTTPS，取消下面注释并挂载证书
-      # - "443:443"
+      # 绑定到 127.0.0.1:8080，由宿主机 nginx 反向代理访问
+      # 不直接暴露 80 端口，避免与宿主机 nginx 冲突
+      - "127.0.0.1:8080:80"
     depends_on:
       - backend
     networks:
