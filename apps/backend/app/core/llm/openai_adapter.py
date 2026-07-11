@@ -2,16 +2,19 @@ import asyncio
 import json
 import re
 import time
-from typing import Any
+from typing import Any, Type, TypeVar
 
 import httpx
 import structlog
 from openai import AsyncOpenAI
+from pydantic import BaseModel, ValidationError
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import settings
 from app.core.llm.adapter import LLMAdapter
 from app.core.trace import get_trace_id
+
+T = TypeVar("T", bound=BaseModel)
 
 logger = structlog.get_logger("app.core.llm.openai_adapter")
 
@@ -131,6 +134,8 @@ class OpenAIAdapter(LLMAdapter):
                     temperature=temperature,
                     max_tokens=max_tokens,
                     stream=True,
+                    # DeepSeek JSON Output：服务端约束解码，保证输出合法 JSON
+                    response_format={"type": "json_object"},
                     extra_body={"thinking": {"type": "disabled"}},
                 ),
                 timeout=settings.llm_timeout_seconds,
@@ -238,3 +243,53 @@ class OpenAIAdapter(LLMAdapter):
                 error_type=type(e).__name__,
             )
             raise
+
+    async def chat_completion_validated(
+        self,
+        messages: list[dict[str, str]],
+        output_model: Type[T],
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ) -> T:
+        """调用 LLM 并用 Pydantic 模型校验输出
+
+        流程：
+        1. 第一次调用（response_format=json_object 保证合法 JSON）→ Pydantic 校验
+        2. 校验失败 → 重试一次
+        3. 重试仍失败 → 抛出 ValidationError（调用方负责降级）
+
+        网络层重试由 chat_completion_json 的 tenacity 处理，这里只管格式校验重试。
+        """
+        trace_id = get_trace_id()
+        try:
+            raw = await self.chat_completion_json(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            return output_model.model_validate(raw)
+        except ValidationError as e:
+            logger.warning(
+                "llm_validation_failed_retry",
+                trace_id=trace_id,
+                model=self.model,
+                output_model=output_model.__name__,
+                error=str(e)[:500],
+            )
+            # 重试一次
+            raw = await self.chat_completion_json(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            try:
+                return output_model.model_validate(raw)
+            except ValidationError:
+                logger.error(
+                    "llm_validation_failed_final",
+                    trace_id=trace_id,
+                    model=self.model,
+                    output_model=output_model.__name__,
+                    error="retry 仍不符合格式要求",
+                )
+                raise

@@ -11,7 +11,13 @@ from app.core.llm.prompts import (
     build_layer_first_messages,
     build_teaching_messages,
 )
-from app.core.models.interact import TeachingContent, Evaluation
+from app.core.models.interact import (
+    TeachingContent,
+    Evaluation,
+    TeachingLLMOutput,
+    EvaluationLLMOutput,
+    AnalysisLLMOutput,
+)
 from app.core.models.session import MAX_ROUNDS_BEFORE_EVALUATION
 from app.core.trace import get_trace_id
 
@@ -22,15 +28,6 @@ _LAYER_FORMAT = {
     "how": "essence",
     "why": "essence",
     "system": "model",
-}
-
-# 允许的 format 白名单（LLM 输出不在白名单内时回退到该层默认 format）
-_VALID_FORMATS = {"essence", "model"}
-
-# 各 format 期望的非空字段（用于校验 LLM 输出是否合规）
-_EXPECTED_FIELDS = {
-    "essence": ["content"],
-    "model": ["content"],
 }
 
 # 学习行为信号权重（后端评分用）
@@ -57,94 +54,16 @@ def _layer_scope_summary(scope: dict, layer: str) -> str:
     return "\n".join(scope.get("scope", []))
 
 
-def _build_teaching_content(
-    tc: dict,
-    layer: str,
-    *,
-    trace_id: str,
-    session_id: str,
-    node_id: str,
-) -> TeachingContent:
-    """从 LLM 返回的 teaching_content dict 构造 TeachingContent 对象，并校验字段完整性"""
-    fmt = tc.get("format") or _LAYER_FORMAT.get(layer, "guided_question")
-    # format 白名单校验：LLM 输出非法值时回退到该层默认 format，防止 prompt 注入篡改输出结构
-    if fmt not in _VALID_FORMATS:
-        logger.warning(
-            "teaching_content_invalid_format",
-            trace_id=trace_id,
-            session_id=session_id,
-            node_id=node_id,
-            layer=layer,
-            raw_format=fmt,
-        )
-        fmt = _LAYER_FORMAT.get(layer, "guided_question")
-
-    # 容错：LLM 偶发嵌套 teaching_content（如 {"format":"essence","teaching_content":{"feedback":...,"next_question":...}}）
-    # 此时从嵌套对象中提取 feedback + next_question 拼成 content
-    content = tc.get("content")
-    if not content and isinstance(tc.get("teaching_content"), dict):
-        inner = tc["teaching_content"]
-        parts = []
-        if inner.get("feedback"):
-            parts.append(inner["feedback"])
-        if inner.get("next_question"):
-            parts.append(inner["next_question"])
-        content = "\n".join(parts) if parts else None
-
-    # 容错：LLM 偶发用 feedback + next_question 替代 content（未嵌套的情况）
-    if not content:
-        parts = []
-        if tc.get("feedback"):
-            parts.append(tc["feedback"])
-        if tc.get("next_question"):
-            parts.append(tc["next_question"])
-        content = "\n".join(parts) if parts else None
-
-    result = TeachingContent(
-        format=fmt,
-        opening=tc.get("opening"),
-        core_question=tc.get("core_question"),
-        thinking_direction=tc.get("thinking_direction"),
-        content=content,
-    )
-
-    # 校验 LLM 返回的字段是否符合该 format 的预期
-    expected = _EXPECTED_FIELDS.get(fmt, [])
-    missing = [f for f in expected if not getattr(result, f)]
-    if missing:
-        logger.warning(
-            "teaching_content_field_missing",
-            trace_id=trace_id,
-            session_id=session_id,
-            node_id=node_id,
-            layer=layer,
-            format=fmt,
-            missing_fields=missing,
-            received_keys=list(tc.keys()),
-            raw_tc=tc,
-        )
-
-    return result
-
-
 def _fallback_teaching(layer: str) -> TeachingContent:
     """LLM 异常时的兜底教学内容"""
     return TeachingContent(
-        format=_LAYER_FORMAT.get(layer, "guided_question"),
+        format=_LAYER_FORMAT.get(layer, "essence"),
         content=FALLBACK_TEACHING_CONTENT,
     )
 
 
-def _clamp_signal(v) -> int:
-    """把 LLM 返回的信号值规整为 0 或 1"""
-    try:
-        return min(1, max(0, int(v)))
-    except (TypeError, ValueError):
-        return 0
-
-
-def _build_evaluation(
-    raw: dict | None,
+def _build_evaluation_from_signals(
+    signals: EvaluationLLMOutput | None,
     *,
     trace_id: str,
     session_id: str,
@@ -153,7 +72,7 @@ def _build_evaluation(
     round_num: int,
     accumulated_signals: dict[str, int] | None = None,
 ) -> Evaluation | None:
-    """从 LLM 返回的学习行为信号构造 Evaluation
+    """从已校验的 EvaluationLLMOutput 信号构造 Evaluation
 
     LLM 只输出 4 个信号（abstraction/transfer/example/compression，各 0 或 1），
     后端将当前轮信号累加到历史累积（每次出现都计数），
@@ -161,7 +80,7 @@ def _build_evaluation(
         score = abstraction*2 + transfer*3 + example*2 + compression*1
         can_advance = score >= _ADVANCE_THRESHOLD(8)
     """
-    if raw is None:
+    if signals is None:
         logger.warning(
             "evaluation_missing_when_required",
             trace_id=trace_id,
@@ -173,25 +92,11 @@ def _build_evaluation(
         )
         return None
 
-    # LLM 可能返回 {"evaluation": {...}} 或直接 {...}
-    signals = raw.get("evaluation", raw) if isinstance(raw, dict) else None
-    if not isinstance(signals, dict):
-        logger.warning(
-            "evaluation_format_invalid",
-            trace_id=trace_id,
-            session_id=session_id,
-            node_id=node_id,
-            layer=layer,
-            round=round_num,
-            raw=raw,
-        )
-        return None
-
-    # 当前轮信号（LLM 输出，0 或 1）
-    cur_a = _clamp_signal(signals.get("abstraction", 0))
-    cur_t = _clamp_signal(signals.get("transfer", 0))
-    cur_e = _clamp_signal(signals.get("example", 0))
-    cur_c = _clamp_signal(signals.get("compression", 0))
+    # 当前轮信号（Pydantic 已校验为 0 或 1）
+    cur_a = signals.abstraction
+    cur_t = signals.transfer
+    cur_e = signals.example
+    cur_c = signals.compression
 
     # 累加到历史累积（每次出现都计数，不再取 max）
     prev = accumulated_signals or {}
@@ -256,71 +161,6 @@ def _build_evaluation(
     )
 
 
-def _validate_analysis(
-    raw: dict | None,
-    *,
-    trace_id: str,
-    session_id: str,
-    node_id: str,
-    layer: str,
-) -> dict | None:
-    """校验 LLM 返回的层分析结果,字段非法时降级,整体非法时返回 None
-
-    LLM 应返回包含以下字段的 dict:
-    - covered_points / missed_points / detected_misconceptions: 字符串数组
-    - mastery_level: "mastered" | "partial" | "unfamiliar"
-    - quality_score: 0-100 整数
-    - positive_feedback: 字符串(≤200 字)
-    - keywords: 字符串数组(≤6 个)
-    """
-    if not isinstance(raw, dict):
-        logger.warning(
-            "layer_analysis_raw_not_dict",
-            trace_id=trace_id,
-            session_id=session_id,
-            node_id=node_id,
-            layer=layer,
-            raw_type=type(raw).__name__,
-        )
-        return None
-
-    def _str_list(val) -> list[str]:
-        if isinstance(val, list):
-            return [str(x) for x in val if isinstance(x, str)]
-        return []
-
-    def _mastery(val) -> str:
-        if val in ("mastered", "partial", "unfamiliar"):
-            return val
-        return "partial"
-
-    def _score(val) -> int:
-        try:
-            n = int(val)
-            return max(0, min(100, n))
-        except (TypeError, ValueError):
-            return 50
-
-    def _feedback(val) -> str:
-        if isinstance(val, str) and len(val) <= 200:
-            return val
-        return ""
-
-    def _keywords(val) -> list[str]:
-        ks = _str_list(val)
-        return ks[:6]
-
-    return {
-        "covered_points": _str_list(raw.get("covered_points")),
-        "missed_points": _str_list(raw.get("missed_points")),
-        "detected_misconceptions": _str_list(raw.get("detected_misconceptions")),
-        "mastery_level": _mastery(raw.get("mastery_level")),
-        "quality_score": _score(raw.get("quality_score")),
-        "positive_feedback": _feedback(raw.get("positive_feedback")),
-        "keywords": _keywords(raw.get("keywords")),
-    }
-
-
 class SocraticEngine:
     def __init__(self, llm: LLMAdapter):
         self.llm = llm
@@ -349,14 +189,19 @@ class SocraticEngine:
             previous_summary=previous_summary,
         )
         try:
-            raw = await self.llm.chat_completion_json(
+            validated = await self.llm.chat_completion_validated(
                 messages=messages,
+                output_model=TeachingLLMOutput,
                 temperature=0.7,
                 max_tokens=1536,
             )
-            tc = raw.get("teaching_content", {})
-            result = _build_teaching_content(
-                tc, layer, trace_id=trace_id, session_id=session_id, node_id=node_id
+            tc = validated.teaching_content
+            result = TeachingContent(
+                format=tc.format,
+                opening=tc.opening,
+                core_question=tc.core_question,
+                thinking_direction=tc.thinking_direction,
+                content=tc.content,
             )
             logger.info(
                 "engine_first_question_done",
@@ -492,14 +337,19 @@ class SocraticEngine:
             accumulated_signals=accumulated_signals,
         )
         try:
-            raw = await self.llm.chat_completion_json(
+            validated = await self.llm.chat_completion_validated(
                 messages=messages,
+                output_model=TeachingLLMOutput,
                 temperature=0.7,
                 max_tokens=1536,
             )
-            tc = raw.get("teaching_content", {})
-            teaching = _build_teaching_content(
-                tc, layer, trace_id=trace_id, session_id=session_id, node_id=node_id
+            tc = validated.teaching_content
+            teaching = TeachingContent(
+                format=tc.format,
+                opening=tc.opening,
+                core_question=tc.core_question,
+                thinking_direction=tc.thinking_direction,
+                content=tc.content,
             )
             logger.info(
                 "engine_interact_done",
@@ -582,13 +432,15 @@ class SocraticEngine:
 
         # 并行发起两个 LLM 调用，return_exceptions=True 避免一个失败导致整体失败
         results = await asyncio.gather(
-            self.llm.chat_completion_json(
+            self.llm.chat_completion_validated(
                 messages=teaching_messages,
+                output_model=TeachingLLMOutput,
                 temperature=0.7,
                 max_tokens=1536,
             ),
-            self.llm.chat_completion_json(
+            self.llm.chat_completion_validated(
                 messages=eval_messages,
+                output_model=EvaluationLLMOutput,
                 temperature=0.3,  # 信号提取用低 temperature 保证稳定
                 max_tokens=128,   # 输出仅 4 个数字的 JSON，大幅限制 token
             ),
@@ -611,9 +463,13 @@ class SocraticEngine:
             )
             teaching = _fallback_teaching(layer)
         else:
-            tc = teaching_raw.get("teaching_content", {})
-            teaching = _build_teaching_content(
-                tc, layer, trace_id=trace_id, session_id=session_id, node_id=node_id
+            tc = teaching_raw.teaching_content
+            teaching = TeachingContent(
+                format=tc.format,
+                opening=tc.opening,
+                core_question=tc.core_question,
+                thinking_direction=tc.thinking_direction,
+                content=tc.content,
             )
 
         # 处理 evaluation 结果：LLM 返回信号，后端评分
@@ -630,7 +486,7 @@ class SocraticEngine:
             )
             evaluation = None
         else:
-            evaluation = _build_evaluation(
+            evaluation = _build_evaluation_from_signals(
                 eval_raw,
                 trace_id=trace_id,
                 session_id=session_id,
@@ -700,37 +556,34 @@ class SocraticEngine:
                 misconceptions="\n".join(scope.get("misconceptions", [])),
                 dialogue=layer_record.get("dialogue", []),
             )
-            raw = await asyncio.wait_for(
-                self.llm.chat_completion_json(messages, temperature=0.3, max_tokens=1024),
+            validated = await asyncio.wait_for(
+                self.llm.chat_completion_validated(
+                    messages,
+                    output_model=AnalysisLLMOutput,
+                    temperature=0.3,
+                    max_tokens=1024,
+                ),
                 timeout=15,
             )
-            result = _validate_analysis(
-                raw,
+            result = {
+                "covered_points": validated.covered_points,
+                "missed_points": validated.missed_points,
+                "detected_misconceptions": validated.detected_misconceptions,
+                "mastery_level": validated.mastery_level,
+                "quality_score": validated.quality_score,
+                "positive_feedback": validated.positive_feedback,
+                "keywords": validated.keywords,
+            }
+            logger.info(
+                "layer_analysis_done",
                 trace_id=trace_id,
                 session_id=session_id,
                 node_id=node_id,
                 layer=layer,
+                mastery=result["mastery_level"],
+                score=result["quality_score"],
+                covered_count=len(result["covered_points"]),
             )
-            if result is None:
-                logger.warning(
-                    "layer_analysis_invalid",
-                    trace_id=trace_id,
-                    session_id=session_id,
-                    node_id=node_id,
-                    layer=layer,
-                    raw=raw,
-                )
-            else:
-                logger.info(
-                    "layer_analysis_done",
-                    trace_id=trace_id,
-                    session_id=session_id,
-                    node_id=node_id,
-                    layer=layer,
-                    mastery=result["mastery_level"],
-                    score=result["quality_score"],
-                    covered_count=len(result["covered_points"]),
-                )
             return result
         except Exception as e:
             logger.warning(

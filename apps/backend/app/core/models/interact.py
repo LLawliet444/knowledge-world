@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TeachingContent(BaseModel):
@@ -142,3 +142,120 @@ class FinalAnswerResponse(BaseModel):
     comment: str
     # 节点是否已完成（无论对错都标记完成，verdict 只影响点评语气）
     node_completed: bool = True
+
+
+# ─── LLM 输出 Pydantic 模型（JSON Output + 校验） ────────────────
+# 这些模型用于校验 LLM 返回的 JSON，校验失败由 adapter 层重试一次。
+
+
+class TeachingLLMContent(BaseModel):
+    """teaching_content 内部结构（带容错：嵌套 teaching_content / feedback+next_question）"""
+    format: str = "essence"
+    content: str = ""
+    opening: str | None = None
+    core_question: str | None = None
+    thinking_direction: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def flatten_nested(cls, data):
+        """容错：LLM 偶发返回嵌套 teaching_content 或用 feedback/next_question 替代 content"""
+        if not isinstance(data, dict):
+            return data
+        # 嵌套 teaching_content：{"format":"essence","teaching_content":{"feedback":...,"next_question":...}}
+        inner = data.get("teaching_content")
+        if isinstance(inner, dict):
+            if not data.get("content"):
+                parts = []
+                if inner.get("feedback"):
+                    parts.append(inner["feedback"])
+                if inner.get("next_question"):
+                    parts.append(inner["next_question"])
+                data["content"] = "\n".join(parts) if parts else ""
+            if not data.get("format"):
+                data["format"] = inner.get("format", "essence")
+        # 顶层 feedback + next_question
+        if not data.get("content"):
+            parts = []
+            if data.get("feedback"):
+                parts.append(data["feedback"])
+            if data.get("next_question"):
+                parts.append(data["next_question"])
+            data["content"] = "\n".join(parts) if parts else ""
+        # format 白名单
+        if data.get("format") not in ("essence", "model"):
+            data["format"] = "essence"
+        return data
+
+    @field_validator("content")
+    @classmethod
+    def content_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("teaching_content.content 不得为空")
+        return v
+
+
+class TeachingLLMOutput(BaseModel):
+    """LLM teaching 调用完整输出（外层包裹 teaching_content key）"""
+    teaching_content: TeachingLLMContent
+
+
+class EvaluationLLMOutput(BaseModel):
+    """LLM evaluation 信号输出（4 个 0/1 信号）"""
+    abstraction: int = 0
+    transfer: int = 0
+    example: int = 0
+    compression: int = 0
+
+    @field_validator("abstraction", "transfer", "example", "compression")
+    @classmethod
+    def signal_must_be_binary(cls, v):
+        if v not in (0, 1):
+            raise ValueError(f"信号值必须为 0 或 1，得到 {v}")
+        return v
+
+
+class AnalysisLLMOutput(BaseModel):
+    """LLM 层分析输出"""
+    covered_points: list[str] = Field(default_factory=list)
+    missed_points: list[str] = Field(default_factory=list)
+    detected_misconceptions: list[str] = Field(default_factory=list)
+    mastery_level: str
+    quality_score: int
+    positive_feedback: str = ""
+    keywords: list[str] = Field(default_factory=list)
+
+    @field_validator("mastery_level")
+    @classmethod
+    def mastery_must_be_valid(cls, v):
+        if v not in ("mastered", "partial", "unfamiliar"):
+            raise ValueError(f"mastery_level 必须为 mastered/partial/unfamiliar，得到 {v}")
+        return v
+
+    @field_validator("quality_score")
+    @classmethod
+    def score_must_be_in_range(cls, v):
+        if not (0 <= v <= 100):
+            raise ValueError(f"quality_score 必须为 0-100，得到 {v}")
+        return v
+
+
+class FinalAnswerLLMOutput(BaseModel):
+    """LLM 终问判断输出"""
+    verdict: str
+    comment: str
+
+    @field_validator("verdict")
+    @classmethod
+    def verdict_must_be_valid(cls, v):
+        v = str(v).lower().strip()
+        if v not in ("correct", "partial", "incorrect"):
+            raise ValueError(f"verdict 必须为 correct/partial/incorrect，得到 {v}")
+        return v
+
+    @field_validator("comment")
+    @classmethod
+    def comment_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("comment 不得为空")
+        return v

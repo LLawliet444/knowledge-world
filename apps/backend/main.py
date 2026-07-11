@@ -21,6 +21,7 @@ from app.core.models.interact import (
     AnswerRequest,
     AnswerResponse,
     DialogueMessage,
+    FinalAnswerLLMOutput,
     EnterNodeResponse,
     FinalAnswerRequest,
     FinalAnswerResponse,
@@ -611,17 +612,14 @@ async def final_answer(request: Request, session_id: str, node_id: str, req: Fin
     verdict = "partial"
     comment = ""
     try:
-        raw = await llm.chat_completion_json(
+        validated = await llm.chat_completion_validated(
             messages=messages,
+            output_model=FinalAnswerLLMOutput,
             temperature=0.5,
             max_tokens=256,
         )
-        verdict = str(raw.get("verdict", "partial")).lower()
-        if verdict not in ("correct", "partial", "incorrect"):
-            verdict = "partial"
-        comment = str(raw.get("comment", "")).strip()
-        if not comment:
-            comment = "你的回答我收到了。经过四层探索，你已经有了自己的理解。"
+        verdict = validated.verdict
+        comment = validated.comment
         logger.info(
             "final_answer_judged",
             trace_id=get_trace_id(),
