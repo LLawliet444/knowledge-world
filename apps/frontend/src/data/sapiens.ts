@@ -26,7 +26,7 @@ export const sapiensWorld: World = {
         title: "讲故事的人",
         avatar: "/scenes/cave_fire/gate_npc.png",
       },
-      positions: { what: { x: 450, y: 750 }, how: { x: 300, y: 300 }, why: { x: 200, y: 780 }, system: { x: 112, y: 630 } },
+      positions: { what: { x: 450, y: 750 }, how: { x: 300, y: 300 }, why: { x: 200, y: 780 }, system: { x: 200, y: 400 } },
       neighbors: ["n_agri_rev"],
       nextDiscoveryId: "n_agri_rev",
       sourceExcerpt:

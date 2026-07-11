@@ -1,0 +1,41 @@
+# Docker 构建排除文件 — 防止敏感信息进入镜像层
+# 注意：根目录的 .dockerignore 对 apps/backend 构建上下文无效
+# 必须在构建上下文目录（apps/backend/）下单独放置 .dockerignore
+
+# 环境变量与密钥（绝对不能进镜像）
+.env
+.env.local
+.env.*.local
+.env.docker
+*.pem
+*.key
+
+# Python 缓存与虚拟环境
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 日志（运行时生成，不需要打包）
+logs/
+*.log
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 文档与示例（运行时不需要）
+README.md
+.env.example
+
+# Git
+.git/
+.gitignore

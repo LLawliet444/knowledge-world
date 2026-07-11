@@ -26,8 +26,11 @@ RUN pip install --no-cache-dir gunicorn
 
 WORKDIR /app
 
-# 复制后端代码
-COPY . .
+# 只复制运行所需文件，避免 .env / logs / __pycache__ 等进入镜像
+# .dockerignore 会进一步排除敏感文件（双保险）
+COPY main.py ./
+COPY app/ ./app/
+COPY requirements.txt ./
 
 # 确保日志目录存在
 RUN mkdir -p /app/logs
