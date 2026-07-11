@@ -12,6 +12,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { extractKeywords } from "../utils/keywordExtractor";
 import { useWorldStore } from "./worldStore";
+import type { LayerAnalysis } from "../types/feedback";
 import type { World } from "../types/world";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────
@@ -54,6 +55,13 @@ export interface NodeThinkingNote {
   finalAnswer: string;
   /** 关键词 */
   keywords: string[];
+  /** 各层老学者点评（LLM 结构化分析产出，空字符串表示无点评） */
+  positiveFeedback: {
+    how: string;
+    why: string;
+    system: string;
+    final: string;
+  };
 }
 
 /** 节点弱点摘要（后台，不展示给用户） */
@@ -153,6 +161,13 @@ function assessConfidence(
   return "high";
 }
 
+/** LLM qualityScore (0-100) → confidence 映射 */
+function mapScoreToConfidence(score: number): "high" | "medium" | "low" {
+  if (score >= 70) return "high";
+  if (score >= 40) return "medium";
+  return "low";
+}
+
 export const useKnowledgeStore = create<KnowledgeState & KnowledgeActions>()(
   persist(
     (set, get) => ({
@@ -189,7 +204,7 @@ export const useKnowledgeStore = create<KnowledgeState & KnowledgeActions>()(
 
         const { layerRecords, nodeRecords } = get();
 
-        // 读取各层记录
+        // 读取各层记录（前端 ThinkingLayerRecord）
         const howRec = layerRecords[`${nodeId}_how`] ?? null;
         const whyRec = layerRecords[`${nodeId}_why`] ?? null;
         const systemRec = layerRecords[`${nodeId}_system`] ?? null;
@@ -201,7 +216,46 @@ export const useKnowledgeStore = create<KnowledgeState & KnowledgeActions>()(
         const selectedCard = node.whatCards.find((c) => c.type === readyChoice);
         const scrollText = selectedCard?.text ?? node.whatCards[0]?.text ?? "";
 
-        // 提取关键词
+        // 读取后端 layer_records 里的 analysis（LLM 结构化分析结果）
+        const backendLayerRecords = nodeProgress[nodeId]?.layerRecords ?? {};
+        const howAnalysis = backendLayerRecords.how?.analysis;
+        const whyAnalysis = backendLayerRecords.why?.analysis;
+        const systemAnalysis = backendLayerRecords.system?.analysis;
+        // final 层无后端 layer_records,analysis 留空(终问走 final-answer 接口,不触发 layer analysis)
+        const finalAnalysis: LayerAnalysis | undefined = undefined;
+
+        const analysisOk = (a: LayerAnalysis | undefined) => a?.status === "success";
+
+        // 置信度: LLM qualityScore 优先,降级用 assessConfidence
+        const howConfidence = analysisOk(howAnalysis)
+          ? mapScoreToConfidence(howAnalysis!.quality_score)
+          : (howRec?.confidence ?? "low");
+        const whyConfidence = analysisOk(whyAnalysis)
+          ? mapScoreToConfidence(whyAnalysis!.quality_score)
+          : (whyRec?.confidence ?? "low");
+        const systemConfidence = analysisOk(systemAnalysis)
+          ? mapScoreToConfidence(systemAnalysis!.quality_score)
+          : (systemRec?.confidence ?? "low");
+        const finalConfidence = finalRec?.confidence ?? "low";
+
+        // 弱点摘要（后台）
+        const allRecords: (ThinkingLayerRecord & { confidence: "high" | "medium" | "low" })[] = [
+          howRec ? { ...howRec, confidence: howConfidence } : null,
+          whyRec ? { ...whyRec, confidence: whyConfidence } : null,
+          systemRec ? { ...systemRec, confidence: systemConfidence } : null,
+          finalRec ? { ...finalRec, confidence: finalConfidence } : null,
+        ].filter(Boolean) as (ThinkingLayerRecord & { confidence: "high" | "medium" | "low" })[];
+        const lowConfidenceLayers = allRecords
+          .filter((r) => r.confidence === "low")
+          .map((r) => r.depthLayer);
+        const overallConfidence: "high" | "medium" | "low" =
+          lowConfidenceLayers.length >= 2
+            ? "low"
+            : lowConfidenceLayers.length === 1
+              ? "medium"
+              : "high";
+
+        // 关键词: LLM ∪ extractKeywords,去重
         const answers = [
           howRec?.userInput ?? "",
           whyRec?.userInput ?? "",
@@ -213,35 +267,47 @@ export const useKnowledgeStore = create<KnowledgeState & KnowledgeActions>()(
           ...node.whatCards.map((c) => c.text),
           node.mysteryQuestion,
         ].join(" ");
-        const keywords = extractKeywords(answers, referenceText);
+        const llmKeywords = [
+          ...(analysisOk(howAnalysis) ? howAnalysis!.keywords : []),
+          ...(analysisOk(whyAnalysis) ? whyAnalysis!.keywords : []),
+          ...(analysisOk(systemAnalysis) ? systemAnalysis!.keywords : []),
+        ];
+        const frontendKeywords = extractKeywords(answers, referenceText);
+        const keywords = [...new Set([...llmKeywords, ...frontendKeywords])].slice(0, 8);
 
-        // 弱点摘要（后台）
-        const allRecords = [howRec, whyRec, systemRec, finalRec].filter(
-          Boolean,
-        ) as ThinkingLayerRecord[];
-        const lowConfidenceLayers = allRecords
-          .filter((r) => r.confidence === "low")
-          .map((r) => r.depthLayer);
-        const overallConfidence: "high" | "medium" | "low" =
-          lowConfidenceLayers.length >= 2
-            ? "low"
-            : lowConfidenceLayers.length === 1
-              ? "medium"
-              : "high";
+        // 各层正面评语
+        const positiveFeedback = {
+          how: analysisOk(howAnalysis) ? howAnalysis!.positive_feedback : "",
+          why: analysisOk(whyAnalysis) ? whyAnalysis!.positive_feedback : "",
+          system: analysisOk(systemAnalysis) ? systemAnalysis!.positive_feedback : "",
+          final: analysisOk(finalAnalysis) ? finalAnalysis!.positive_feedback : "",
+        };
+
+        // 弱点摘要: 合并 LLM 的 missed_points 和 detected_misconceptions
+        const topMissedPoints = [
+          ...(analysisOk(howAnalysis) ? howAnalysis!.missed_points : []),
+          ...(analysisOk(whyAnalysis) ? whyAnalysis!.missed_points : []),
+          ...(analysisOk(systemAnalysis) ? systemAnalysis!.missed_points : []),
+        ];
+        const topMisconceptions = [
+          ...(analysisOk(howAnalysis) ? howAnalysis!.detected_misconceptions : []),
+          ...(analysisOk(whyAnalysis) ? whyAnalysis!.detected_misconceptions : []),
+          ...(analysisOk(systemAnalysis) ? systemAnalysis!.detected_misconceptions : []),
+        ];
 
         const nodeRecord: NodeRecord = {
           nodeId,
           nodeName: node.name,
           selectedScroll: readyChoice ?? "definition",
           layers: {
-            how: howRec,
-            why: whyRec,
-            system: systemRec,
-            final: finalRec,
+            how: howRec ? { ...howRec, confidence: howConfidence } : null,
+            why: whyRec ? { ...whyRec, confidence: whyConfidence } : null,
+            system: systemRec ? { ...systemRec, confidence: systemConfidence } : null,
+            final: finalRec ? { ...finalRec, confidence: finalConfidence } : null,
           },
           weaknessSummary: {
-            topMissedPoints: [],
-            topMisconceptions: [],
+            topMissedPoints,
+            topMisconceptions,
             weakLayers: lowConfidenceLayers,
             overallConfidence,
           },
@@ -252,6 +318,7 @@ export const useKnowledgeStore = create<KnowledgeState & KnowledgeActions>()(
             systemAnswer: systemRec?.userInput ?? "（未记录）",
             finalAnswer: finalRec?.userInput ?? "（未记录）",
             keywords,
+            positiveFeedback,
           },
           completedAt: new Date().toISOString(),
         };

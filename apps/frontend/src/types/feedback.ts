@@ -63,6 +63,28 @@ export interface AnswerResponse {
   evaluation: Evaluation | null;
 }
 
+/** 层通关结构化分析结果（后端异步 LLM 分析,存入 layer_records[layer].analysis） */
+export interface LayerAnalysis {
+  /** 分析状态：success=分析成功，failed=LLM 失败/超时，pending=分析中 */
+  status: "success" | "failed" | "pending";
+  /** 用户答到的掌握标准（仅 status=success 时非空） */
+  covered_points: string[];
+  /** 用户未达成的掌握标准 */
+  missed_points: string[];
+  /** 用户命中的常见误解 */
+  detected_misconceptions: string[];
+  /** 掌握程度 */
+  mastery_level: "mastered" | "partial" | "unfamiliar";
+  /** 整体评分 0-100 */
+  quality_score: number;
+  /** 一句话正面评语（展示给用户） */
+  positive_feedback: string;
+  /** 核心关键词 */
+  keywords: string[];
+  /** 分析完成时间 ISO */
+  analyzed_at: string;
+}
+
 /** 单层的完整记录（对话+信号+得分+总结） */
 export interface LayerRecord {
   /** 完整对话历史 */
@@ -82,6 +104,8 @@ export interface LayerRecord {
   summary: string;
   /** 该层是否已完成 */
   completed: boolean;
+  /** 层通关结构化分析结果（后端异步 LLM 分析，可能未生成） */
+  analysis?: LayerAnalysis;
 }
 
 /** 单个历史节点的完成情况 */

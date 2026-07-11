@@ -6,6 +6,7 @@ from app.core.llm.adapter import LLMAdapter
 from app.core.llm.prompts import (
     FALLBACK_TEACHING_CONTENT,
     build_evaluation_messages,
+    build_layer_analysis_messages,
     build_merged_messages,
     build_layer_first_messages,
     build_teaching_messages,
@@ -231,6 +232,71 @@ def _build_evaluation(
         compression=c,
         score=score,
     )
+
+
+def _validate_analysis(
+    raw: dict | None,
+    *,
+    trace_id: str,
+    session_id: str,
+    node_id: str,
+    layer: str,
+) -> dict | None:
+    """校验 LLM 返回的层分析结果,字段非法时降级,整体非法时返回 None
+
+    LLM 应返回包含以下字段的 dict:
+    - covered_points / missed_points / detected_misconceptions: 字符串数组
+    - mastery_level: "mastered" | "partial" | "unfamiliar"
+    - quality_score: 0-100 整数
+    - positive_feedback: 字符串(≤200 字)
+    - keywords: 字符串数组(≤6 个)
+    """
+    if not isinstance(raw, dict):
+        logger.warning(
+            "layer_analysis_raw_not_dict",
+            trace_id=trace_id,
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            raw_type=type(raw).__name__,
+        )
+        return None
+
+    def _str_list(val) -> list[str]:
+        if isinstance(val, list):
+            return [str(x) for x in val if isinstance(x, str)]
+        return []
+
+    def _mastery(val) -> str:
+        if val in ("mastered", "partial", "unfamiliar"):
+            return val
+        return "partial"
+
+    def _score(val) -> int:
+        try:
+            n = int(val)
+            return max(0, min(100, n))
+        except (TypeError, ValueError):
+            return 50
+
+    def _feedback(val) -> str:
+        if isinstance(val, str) and len(val) <= 200:
+            return val
+        return ""
+
+    def _keywords(val) -> list[str]:
+        ks = _str_list(val)
+        return ks[:6]
+
+    return {
+        "covered_points": _str_list(raw.get("covered_points")),
+        "missed_points": _str_list(raw.get("missed_points")),
+        "detected_misconceptions": _str_list(raw.get("detected_misconceptions")),
+        "mastery_level": _mastery(raw.get("mastery_level")),
+        "quality_score": _score(raw.get("quality_score")),
+        "positive_feedback": _feedback(raw.get("positive_feedback")),
+        "keywords": _keywords(raw.get("keywords")),
+    }
 
 
 class SocraticEngine:
@@ -562,3 +628,78 @@ class SocraticEngine:
             eval_failed=isinstance(eval_raw, Exception),
         )
         return teaching, evaluation
+
+    async def analyze_layer_async(
+        self,
+        session_id: str,
+        node_id: str,
+        layer: str,
+        scope: dict,
+        layer_record: dict,
+    ) -> dict | None:
+        """异步分析某层通关后的用户表现,失败返回 None
+
+        基于 scope 的掌握标准和常见误解,对该层完整对话做结构化分析。
+        15s 超时,失败不重试,调用方负责降级处理。
+
+        Args:
+            session_id: 会话 ID
+            node_id: 节点 ID (n001-n007)
+            layer: 层名 (how/why/system)
+            scope: 节点 scope dict (含 criteria_by_layer, misconceptions 等)
+            layer_record: 该层的完整记录 (含 dialogue 等)
+
+        Returns:
+            校验后的分析结果 dict,或 None(超时/异常/校验失败)
+        """
+        trace_id = get_trace_id()
+        try:
+            messages = build_layer_analysis_messages(
+                layer=layer,
+                scope_summary=_layer_scope_summary(scope, layer),
+                criteria="\n".join(scope.get("criteria_by_layer", {}).get(layer, [])),
+                misconceptions="\n".join(scope.get("misconceptions", [])),
+                dialogue=layer_record.get("dialogue", []),
+            )
+            raw = await asyncio.wait_for(
+                self.llm.chat_completion_json(messages, temperature=0.3, max_tokens=1024),
+                timeout=15,
+            )
+            result = _validate_analysis(
+                raw,
+                trace_id=trace_id,
+                session_id=session_id,
+                node_id=node_id,
+                layer=layer,
+            )
+            if result is None:
+                logger.warning(
+                    "layer_analysis_invalid",
+                    trace_id=trace_id,
+                    session_id=session_id,
+                    node_id=node_id,
+                    layer=layer,
+                    raw=raw,
+                )
+            else:
+                logger.info(
+                    "layer_analysis_done",
+                    trace_id=trace_id,
+                    session_id=session_id,
+                    node_id=node_id,
+                    layer=layer,
+                    mastery=result["mastery_level"],
+                    score=result["quality_score"],
+                    covered_count=len(result["covered_points"]),
+                )
+            return result
+        except Exception as e:
+            logger.warning(
+                "layer_analysis_failed",
+                trace_id=trace_id,
+                session_id=session_id,
+                node_id=node_id,
+                layer=layer,
+                error=str(e),
+            )
+            return None

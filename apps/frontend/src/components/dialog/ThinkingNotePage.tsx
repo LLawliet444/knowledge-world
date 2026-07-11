@@ -56,12 +56,12 @@ export const ThinkingNotePage: React.FC<ThinkingNotePageProps> = ({
     );
   }
 
-  const sections: { label: string; icon: string; text: string }[] = [
+  const sections: { label: string; icon: string; text: string; feedback?: string }[] = [
     { label: "你选择的卷轴", icon: "📜", text: note.scrollText },
-    { label: "How · 你的理解", icon: "💡", text: note.howAnswer },
-    { label: "Why · 你的分析", icon: "🔍", text: note.whyAnswer },
-    { label: "System · 你的延伸", icon: "🌐", text: note.systemAnswer },
-    { label: "你的最终回答", icon: "✨", text: note.finalAnswer },
+    { label: "How · 你的理解", icon: "💡", text: note.howAnswer, feedback: note.positiveFeedback.how },
+    { label: "Why · 你的分析", icon: "🔍", text: note.whyAnswer, feedback: note.positiveFeedback.why },
+    { label: "System · 你的延伸", icon: "🌐", text: note.systemAnswer, feedback: note.positiveFeedback.system },
+    { label: "你的最终回答", icon: "✨", text: note.finalAnswer, feedback: note.positiveFeedback.final },
   ];
 
   return (
@@ -119,6 +119,23 @@ export const ThinkingNotePage: React.FC<ThinkingNotePageProps> = ({
             >
               {s.text}
             </div>
+            {s.feedback && (
+              <div
+                style={{
+                  backgroundColor: "#dff0e4",
+                  border: "2px solid #5d9c3f",
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: "#2e6b3a",
+                  marginTop: 4,
+                  marginLeft: 12,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                💡 老学者点评：{s.feedback}
+              </div>
+            )}
           </div>
         ))}
       </div>

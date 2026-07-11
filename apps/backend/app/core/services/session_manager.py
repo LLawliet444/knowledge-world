@@ -178,6 +178,7 @@ class SessionManager:
             "score": prev_record.get("score", 0),
             "summary": summary,
             "completed": True,
+            "analysis": {"status": "pending"},
         }
 
         next_lyr = state.next_layer()

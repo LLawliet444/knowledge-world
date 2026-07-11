@@ -1,5 +1,7 @@
+import asyncio
 import os
 import time
+from datetime import datetime
 
 # 设置进程时区为上海时区（必须在任何 time/logging 使用前执行）
 os.environ["TZ"] = "Asia/Shanghai"
@@ -49,6 +51,55 @@ if settings.app_env == "production":
 llm = OpenAIAdapter()
 session_manager = SessionManager()
 socratic_engine = SocraticEngine(llm)
+
+
+async def _safe_analyze_and_save(
+    session_id: str,
+    node_id: str,
+    layer: str,
+    scope: dict,
+    layer_record: dict,
+) -> None:
+    """异步分析 + 写回 Redis,失败标记 status=failed
+
+    在 _process_answer 判定 can_advance=True 后由 asyncio.create_task 调度。
+    成功则写回 status=success + 全字段,失败写回 status=failed。
+    """
+    try:
+        result = await socratic_engine.analyze_layer_async(
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            scope=scope,
+            layer_record=layer_record,
+        )
+        state = session_manager.get_session(session_id)
+        if state is None:
+            return
+        if result is not None and layer in state.layer_records:
+            state.layer_records[layer]["analysis"] = {
+                "status": "success",
+                "covered_points": result["covered_points"],
+                "missed_points": result["missed_points"],
+                "detected_misconceptions": result["detected_misconceptions"],
+                "mastery_level": result["mastery_level"],
+                "quality_score": result["quality_score"],
+                "positive_feedback": result["positive_feedback"],
+                "keywords": result["keywords"],
+                "analyzed_at": datetime.now().isoformat(),
+            }
+        elif layer in state.layer_records:
+            state.layer_records[layer]["analysis"] = {"status": "failed"}
+        session_manager.save(state)
+    except Exception as e:
+        logger.warning(
+            "safe_analyze_and_save_failed",
+            trace_id=get_trace_id(),
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            error=str(e),
+        )
 
 _is_prod = settings.app_env == "production"
 
@@ -385,6 +436,16 @@ async def _process_answer(
 
     layer_summary = evaluation.summary if evaluation else ""
     state = session_manager.advance_layer(session_id, layer_summary)
+
+    # 异步触发层通关结构化分析(不阻塞响应,失败走降级)
+    if layer in state.layer_records:
+        asyncio.create_task(_safe_analyze_and_save(
+            session_id=session_id,
+            node_id=node_id,
+            layer=layer,
+            scope=scope,
+            layer_record=state.layer_records[layer],
+        ))
 
     if state.node_completed:
         logger.info(
