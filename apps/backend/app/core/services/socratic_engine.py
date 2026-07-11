@@ -78,12 +78,34 @@ def _build_teaching_content(
             raw_format=fmt,
         )
         fmt = _LAYER_FORMAT.get(layer, "guided_question")
+
+    # 容错：LLM 偶发嵌套 teaching_content（如 {"format":"essence","teaching_content":{"feedback":...,"next_question":...}}）
+    # 此时从嵌套对象中提取 feedback + next_question 拼成 content
+    content = tc.get("content")
+    if not content and isinstance(tc.get("teaching_content"), dict):
+        inner = tc["teaching_content"]
+        parts = []
+        if inner.get("feedback"):
+            parts.append(inner["feedback"])
+        if inner.get("next_question"):
+            parts.append(inner["next_question"])
+        content = "\n".join(parts) if parts else None
+
+    # 容错：LLM 偶发用 feedback + next_question 替代 content（未嵌套的情况）
+    if not content:
+        parts = []
+        if tc.get("feedback"):
+            parts.append(tc["feedback"])
+        if tc.get("next_question"):
+            parts.append(tc["next_question"])
+        content = "\n".join(parts) if parts else None
+
     result = TeachingContent(
         format=fmt,
         opening=tc.get("opening"),
         core_question=tc.get("core_question"),
         thinking_direction=tc.get("thinking_direction"),
-        content=tc.get("content"),
+        content=content,
     )
 
     # 校验 LLM 返回的字段是否符合该 format 的预期
