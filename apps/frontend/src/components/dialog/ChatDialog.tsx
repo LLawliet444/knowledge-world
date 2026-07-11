@@ -95,6 +95,12 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
   // typingId: 当前正在打字的消息 id；typedChars: 已显示字符数
   const [typingId, setTypingId] = useState<number | null>(null);
   const [typedChars, setTypedChars] = useState(0);
+  // 后端不可用时的提示文案（空=正常）
+  const [backendToast, setBackendToast] = useState<string>("");
+  // LLM 生成失败状态：null=正常，string=失败提示（附重试按钮）
+  const [llmFailStatus, setLlmFailStatus] = useState<string | null>(null);
+  // 最近一次失败的用户输入（供重试使用）
+  const lastFailedInput = useRef<string>("");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -376,6 +382,11 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
       if (!sid) {
         const sess = await createSession();
         sid = sess.session_id;
+        // 后端不可用 → createSession 返回 sess_fallback，明确提示用户
+        if (sid === "sess_fallback") {
+          console.warn("[ChatDialog] 后端不可用，当前对话内容未保存到服务器");
+          setBackendToast("⚠️ AI 服务不可用，当前内容未保存");
+        }
         setSessionId(sid);
         setSessionToken(sess.secret_token);
       }
@@ -463,6 +474,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
     }
 
     setSubmitting(true);
+    setLlmFailStatus(null);
 
     try {
       const res = await answerNode(sessionId!, node.id, userText);
@@ -472,6 +484,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         current_layer: res.current_layer,
         current_round: res.current_round,
         session_id: res.session_id,
+        llm_status: res.llm_status,
         isFallback: res.session_id === "",
       });
       processAnswerResponse(res);
@@ -480,6 +493,18 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
         ?? res.teaching_content?.content
         ?? "";
       recordLayer(node.id, currentLayer as "how" | "why" | "system", userText, aiFeedback);
+
+      // LLM 生成失败：展示失败提示与重试入口（不中断对话，兜底内容已展示）
+      // can_advance=true 且 teaching_failed 时用户已正常通关，无需告警
+      if (res.llm_status && res.llm_status !== "ok" && !res.can_advance) {
+        const failMsg = res.llm_status === "all_failed"
+          ? "本轮 AI 生成完全失败，你的回答未被有效评估。"
+          : res.llm_status === "eval_failed"
+            ? "本轮评估生成失败，回答未被有效评分。"
+            : "本轮教学内容生成失败，已使用兜底内容。";
+        setLlmFailStatus(failMsg);
+        lastFailedInput.current = userText;
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -493,6 +518,57 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
       setSubmitting(false);
     }
   }, [inputText, submitting, sessionId, node.id, processAnswerResponse, isFinalQuestion, setFinalQuestion, recordLayer, currentLayer]);
+
+  // 重试上一轮失败的 LLM 生成：移除兜底 AI 回复+用户消息，带 retry=true 重新调用
+  const handleRetry = useCallback(async () => {
+    if (!sessionId || !lastFailedInput.current || submitting) return;
+    const retryText = lastFailedInput.current;
+    lastFailedInput.current = "";
+    setLlmFailStatus(null);
+
+    // 移除最后 2 条消息：兜底 AI 回复 + 用户回答
+    setMessages((prev) => {
+      const trimmed = [...prev];
+      // 最后一条是 mentor（兜底 AI 回复）
+      if (trimmed.length > 0 && trimmed[trimmed.length - 1].role === "mentor") {
+        trimmed.pop();
+      }
+      // 倒数第二条是 user
+      if (trimmed.length > 0 && trimmed[trimmed.length - 1].role === "user") {
+        trimmed.pop();
+      }
+      return trimmed;
+    });
+
+    setSubmitting(true);
+    try {
+      const res = await answerNode(sessionId, node.id, retryText, true);
+      console.log("[ChatDialog] retry answerNode 返回", {
+        can_advance: res.can_advance,
+        llm_status: res.llm_status,
+      });
+      processAnswerResponse(res);
+      const aiFeedback = res.evaluation?.reason
+        ?? res.teaching_content?.content
+        ?? "";
+      recordLayer(node.id, currentLayer as "how" | "why" | "system", retryText, aiFeedback);
+
+      if (res.llm_status && res.llm_status !== "ok" && !res.can_advance) {
+        const failMsg = res.llm_status === "all_failed"
+          ? "重试仍失败，你的回答未被有效评估。可再次重试。"
+          : res.llm_status === "eval_failed"
+            ? "重试后评估仍失败，回答未被有效评分。可再次重试。"
+            : "重试后教学内容仍失败，已使用兜底内容。可再次重试。";
+        setLlmFailStatus(failMsg);
+        lastFailedInput.current = retryText;
+      }
+    } catch {
+      setLlmFailStatus("重试请求失败，请检查网络后再次重试。");
+      lastFailedInput.current = retryText;
+    } finally {
+      setSubmitting(false);
+    }
+  }, [sessionId, node.id, submitting, processAnswerResponse, recordLayer, currentLayer]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -591,6 +667,60 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
       >
         ❓ {node.mysteryQuestion}
       </div>
+
+      {backendToast && (
+        <div
+          style={{
+            background: "#fff3cd",
+            border: "1px solid #ffc107",
+            borderRadius: 6,
+            padding: "6px 10px",
+            marginBottom: 8,
+            fontSize: 13,
+            color: "#856404",
+          }}
+        >
+          {backendToast}
+        </div>
+      )}
+
+      {llmFailStatus && (
+        <div
+          style={{
+            background: "#fdecea",
+            border: "2px solid #e57373",
+            borderRadius: 6,
+            padding: "8px 10px",
+            marginBottom: 8,
+            fontSize: 13,
+            color: "#c62828",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <span>⚠️ {llmFailStatus}</span>
+          <button
+            onClick={handleRetry}
+            disabled={submitting}
+            style={{
+              background: "#e57373",
+              color: "#fff",
+              border: "2px solid #c62828",
+              padding: "3px 10px",
+              fontSize: 12,
+              cursor: submitting ? "not-allowed" : "pointer",
+              opacity: submitting ? 0.6 : 1,
+              fontFamily: "'Zpix', 'Press Start 2P', 'Microsoft YaHei', monospace",
+              boxShadow: "2px 2px 0px rgba(0,0,0,0.2)",
+              flexShrink: 0,
+            }}
+          >
+            重试
+          </button>
+        </div>
+      )}
 
       <div
         style={{

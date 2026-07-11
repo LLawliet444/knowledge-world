@@ -320,7 +320,8 @@ export const useKnowledgeStore = create<KnowledgeState & KnowledgeActions>()(
             keywords,
             positiveFeedback,
           },
-          completedAt: new Date().toISOString(),
+          // 保留首次完成时间：刷新页面时 restoreSession 会重新 aggregateNode，不应覆盖原始时间戳
+          completedAt: nodeRecords[nodeId]?.completedAt ?? new Date().toISOString(),
         };
 
         set((state) => ({

@@ -154,6 +154,32 @@ export const LayerClearanceDialog: React.FC<LayerClearanceDialogProps> = ({
               {rec.summary}
             </div>
           )}
+
+          {/* LLM 结构化分析：老学者点评 */}
+          {rec.analysis?.status === "success" && rec.analysis.positive_feedback && (
+            <div
+              style={{
+                backgroundColor: "#dff0e4",
+                border: "2px solid #5d9c3f",
+                padding: "10px 14px",
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: "#2e6b3a",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#3f7a4f", marginBottom: 4, fontWeight: "bold" }}>
+                💡 老学者点评
+              </div>
+              {rec.analysis.positive_feedback}
+              {rec.analysis.covered_points.length > 0 && (
+                <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>
+                  <span style={{ fontWeight: "bold" }}>已掌握：</span>
+                  {rec.analysis.covered_points.join("、")}
+                </div>
+              )}
+            </div>
+          )}
         </>
       ) : (
         // 无 layerRecords 数据（理论上 restoreSession 应已填入；若失败则显示通用文案）

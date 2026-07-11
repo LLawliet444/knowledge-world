@@ -61,6 +61,9 @@ export interface AnswerResponse {
   layer_summary: string;
   teaching_content: TeachingContent | null;
   evaluation: Evaluation | null;
+  /** 本轮 LLM 调用状态：ok / teaching_failed / eval_failed / all_failed
+   *  非 ok 时前端展示"生成异常"提示与重试入口 */
+  llm_status?: string;
 }
 
 /** 层通关结构化分析结果（后端异步 LLM 分析,存入 layer_records[layer].analysis） */

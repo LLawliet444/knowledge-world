@@ -18,7 +18,13 @@ class Settings(BaseSettings):
 
     # CORS 允许的源（环境变量逗号分隔，如 CORS_ORIGINS=https://a.com,https://b.com）
     # 生产环境必须改为实际前端域名，不要用 *
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:4173"]
+    # 开发环境同时覆盖 localhost 和 127.0.0.1，避免 host 混用导致 CORS 失败
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ]
 
     # 运行环境：development / production
     # production 下：关闭 reload、关闭 /docs、日志脱敏更严格

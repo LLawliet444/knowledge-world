@@ -280,13 +280,18 @@ export const useWorldStore = create<WorldState & WorldActions>()(
         for (const h of status.nodeHistory) {
           const p = progress[h.frontendNodeId];
           if (!p) continue;
+          // 节点已完成时，completedLayers 可能为空（旧数据/脏数据），
+          // 此时按 nodeCompleted=True 推断所有层都完成
+          const effectiveLayers = h.completedLayers.length > 0
+            ? h.completedLayers
+            : (h.nodeCompleted ? ["how", "why", "system"] : []);
           // what 层：能进入 how 说明 what 已完成
-          if (h.completedLayers.length > 0) {
+          if (effectiveLayers.length > 0) {
             p.what = "completed";
             p.introScene = "seen";
           }
           // 按层顺序标记 completed
-          for (const layer of h.completedLayers) {
+          for (const layer of effectiveLayers) {
             if (layer === "how" || layer === "why" || layer === "system") {
               p[layer] = "completed";
             }
@@ -327,6 +332,12 @@ export const useWorldStore = create<WorldState & WorldActions>()(
             if (layerIdx >= 3) cur.why = "completed";
             // 当前层本身视作 available（进行中）
             cur[status.currentLayer] = "available";
+            // 恢复当前节点的每层完整记录（含 analysis），供通关评级弹窗读取
+            for (const [layer, rec] of Object.entries(status.layerRecords ?? {})) {
+              if (layer === "how" || layer === "why" || layer === "system") {
+                cur.layerRecords[layer] = rec;
+              }
+            }
             // 已进入 how 层及之后，说明 what 层动画早已看过，标记 seen 避免刷新后重播
             if (layerIdx >= 1) cur.introScene = "seen";
           }
@@ -366,6 +377,19 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           fogPercentage: calcFogPercentage(world, progress),
           scholarPos,
         });
+
+        // 补跑节点笔记聚合：终问已通过的历史节点，若前端尚未 aggregateNode（如刷新后/构造数据），
+        // 在这里补上，确保「我的书」入口可用
+        const { aggregateNode: aggregate, isBookReady: bookReady, generateBook } = useKnowledgeStore.getState();
+        for (const h of status.nodeHistory) {
+          if (h.finalQuestionCompleted && h.nodeCompleted) {
+            aggregate(h.frontendNodeId, world);
+          }
+        }
+        // 全部节点都已聚合 → 生成全书合集
+        if (bookReady(world)) {
+          generateBook(world);
+        }
 
         return status;
       },

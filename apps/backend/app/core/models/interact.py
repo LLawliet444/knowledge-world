@@ -72,6 +72,8 @@ class EnterNodeResponse(BaseModel):
 
 class AnswerRequest(BaseModel):
     user_input: str = Field(..., max_length=1000)
+    # retry=true：上一轮 LLM 失败后重试，后端先回滚上一轮状态再重新生成
+    retry: bool = False
 
 
 class AnswerResponse(BaseModel):
@@ -84,6 +86,9 @@ class AnswerResponse(BaseModel):
     layer_summary: str = ""
     teaching_content: TeachingContent | None = None
     evaluation: Evaluation | None = None
+    # 本轮 LLM 调用状态：ok / teaching_failed / eval_failed / all_failed
+    # 前端据此展示"生成异常"提示与重试入口，不再静默兜底
+    llm_status: str = "ok"
 
 
 class SessionResponse(BaseModel):

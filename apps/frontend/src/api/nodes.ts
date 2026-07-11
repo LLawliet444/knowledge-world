@@ -82,6 +82,8 @@ const ANSWER_FALLBACK: AnswerResponse = {
     content: "听起来有几分道理，我们再深入想想。这个机制在不同的场景下会有什么不同的表现？",
   },
   evaluation: null,
+  // 后端不可用时走 fallback：标记为 all_failed，前端展示失败提示
+  llm_status: "all_failed",
 };
 
 // ── 公开 API ─────────────────────────────────────────────────────────────
@@ -113,11 +115,12 @@ export async function answerNode(
   sessionId: string,
   frontendNodeId: string,
   userInput: string,
+  retry = false,
 ): Promise<AnswerResponse> {
   const backendId = mapNodeId(frontendNodeId);
   return apiFetch<AnswerResponse>(
     `/api/v1/sessions/${sessionId}/nodes/${backendId}/answer`,
-    { user_input: userInput },
+    { user_input: userInput, retry },
     ANSWER_FALLBACK,
     30000,
   );

@@ -3,8 +3,34 @@
  * 后端不可用时自动降级，保证开发期可演示
  */
 
-export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
+// 开发环境：API 地址跟随当前页面 host，避免 localhost/127.0.0.1 混用导致 CORS 失败
+// 生产环境：优先使用 VITE_API_BASE_URL（如反向代理到 /api）
+function resolveApiBase(): string {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (import.meta.env.DEV) {
+    // 开发环境：与页面同 host，避免 127.0.0.1 → localhost 的 CORS 跨源
+    return `http://${window.location.hostname}:8001`;
+  }
+  // 生产环境默认走相对路径 /api（由 nginx 反向代理到后端）
+  return "/api";
+}
+
+export const API_BASE = resolveApiBase();
+
+// 标记后端是否可用（createSession 返回 sess_fallback 时置 false）
+let _backendAvailable = true;
+
+/** 后端是否可用（不可用时 UI 应提示用户） */
+export function isBackendAvailable(): boolean {
+  return _backendAvailable;
+}
+
+/** 标记后端不可用（apiFetch 网络失败时调用） */
+export function _markBackendUnavailable(): void {
+  _backendAvailable = false;
+}
 
 // 会话鉴权令牌（模块级，由 store 通过 setApiSessionToken 同步）
 let _sessionToken: string | null = null;
@@ -49,9 +75,11 @@ async function apiFetch<T>(
   } catch (err) {
     clearTimeout(timer);
     if (err instanceof Error && err.message.startsWith("HTTP")) {
-      // 已在上面打印过日志
+      // HTTP 错误（如 4xx/5xx）已在上面打印过日志，后端本身在线
     } else {
+      // 网络错误（DNS/CORS/连接失败）：后端不可用，标记并提醒用户
       console.error(`[apiFetch] ${method} ${path} → network error`, err);
+      _markBackendUnavailable();
     }
     return fallback;
   }

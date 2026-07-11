@@ -370,7 +370,7 @@ class SocraticEngine:
         can_evaluate: bool,
         compressed_summary: str = "",
         accumulated_signals: dict[str, int] | None = None,
-    ) -> tuple[TeachingContent, Evaluation | None]:
+    ) -> tuple[TeachingContent, Evaluation | None, str]:
         """用户回答后：生成教学引导 + 可选评估
 
         - can_evaluate=False（前2轮）：单调用 build_merged_messages，只生成 teaching
@@ -378,6 +378,9 @@ class SocraticEngine:
           - evaluation 只提取学习行为信号（4 个 0/1），后端加权评分判定 can_advance
           - 评估通过 → 丢弃 teaching（main.py 会调 generate_first_question 生成下一层首问）
           - 评估不通过 → 用 teaching 作为当前层追问
+
+        返回 (teaching, evaluation, llm_status):
+        - llm_status: "ok" / "teaching_failed" / "eval_failed" / "all_failed"
         """
         trace_id = get_trace_id()
         logger.info(
@@ -451,7 +454,7 @@ class SocraticEngine:
         dialogue_history: list[dict[str, str]],
         compressed_summary: str = "",
         accumulated_signals: dict[str, int] | None = None,
-    ) -> tuple[TeachingContent, Evaluation | None]:
+    ) -> tuple[TeachingContent, Evaluation | None, str]:
         """非评估轮次：单调用生成 teaching"""
         messages = build_merged_messages(
             layer=layer,
@@ -487,7 +490,7 @@ class SocraticEngine:
                 has_evaluation=False,
                 can_advance=None,
             )
-            return teaching, None
+            return teaching, None, "ok"
         except Exception as e:
             logger.error(
                 "engine_interact_failed",
@@ -498,7 +501,7 @@ class SocraticEngine:
                 mode="single",
                 error=str(e),
             )
-            return _fallback_teaching(layer), None
+            return _fallback_teaching(layer), None, "teaching_failed"
 
     async def _interact_parallel(
         self,
@@ -517,13 +520,15 @@ class SocraticEngine:
         compressed_summary: str = "",
         node_name: str = "",
         accumulated_signals: dict[str, int] | None = None,
-    ) -> tuple[TeachingContent, Evaluation | None]:
+    ) -> tuple[TeachingContent, Evaluation | None, str]:
         """评估轮次：并行调用 teaching + evaluation
 
         两个调用独立执行，互不依赖：
         - teaching 调用：生成当前层追问（评估不通过时使用）
         - evaluation 调用：提取学习行为信号（4 个 0/1），后端评分判定是否推进
         任一调用失败不影响另一个。
+
+        llm_status: "ok" / "teaching_failed" / "eval_failed" / "all_failed"
         """
         teaching_messages = build_teaching_messages(
             layer=layer,
@@ -613,6 +618,17 @@ class SocraticEngine:
                 accumulated_signals=accumulated_signals,
             )
 
+        teaching_failed = isinstance(teaching_raw, Exception)
+        eval_failed = isinstance(eval_raw, Exception) or evaluation is None
+        if teaching_failed and eval_failed:
+            llm_status = "all_failed"
+        elif teaching_failed:
+            llm_status = "teaching_failed"
+        elif eval_failed:
+            llm_status = "eval_failed"
+        else:
+            llm_status = "ok"
+
         logger.info(
             "engine_interact_done",
             trace_id=trace_id,
@@ -624,10 +640,11 @@ class SocraticEngine:
             has_evaluation=evaluation is not None,
             can_advance=evaluation.can_advance if evaluation else None,
             score=evaluation.score if evaluation else None,
-            teaching_failed=isinstance(teaching_raw, Exception),
-            eval_failed=isinstance(eval_raw, Exception),
+            teaching_failed=teaching_failed,
+            eval_failed=eval_failed,
+            llm_status=llm_status,
         )
-        return teaching, evaluation
+        return teaching, evaluation, llm_status
 
     async def analyze_layer_async(
         self,

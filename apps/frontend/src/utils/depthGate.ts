@@ -154,11 +154,9 @@ export function afterNodeCompleted(
   const node = world.nodes.find((n) => n.id === nodeId);
   if (!node) return null;
 
-  // nextDiscoveryId 指向的节点；若为空则按 neighbors[0]
-  const nextId =
-    node.nextDiscoveryId ??
-    node.neighbors[0] ??
-    null;
+  // nextDiscoveryId 显式指定下一关；为 null 表示最后一关，不再 fallback 到 neighbors
+  // （neighbors 是无向邻接关系，含已通关的前置节点，不能作为"下一关"使用）
+  const nextId = node.nextDiscoveryId ?? null;
 
   if (!nextId) return null;
 

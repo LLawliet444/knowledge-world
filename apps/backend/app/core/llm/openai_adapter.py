@@ -75,6 +75,7 @@ class OpenAIAdapter(LLMAdapter):
                     write=10.0,
                     pool=5.0,
                 ),
+                trust_env=False,  # 不读环境变量代理：DeepSeek 是国内 API，直连即可
             )
             kwargs = {"api_key": self._api_key, "http_client": http_client}
             if self._base_url:

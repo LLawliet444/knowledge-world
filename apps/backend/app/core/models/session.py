@@ -32,6 +32,8 @@ class SessionState:
     # 当前层累积学习行为信号（累加计数，每次出现都+1）
     # 结构：{"abstraction": N, "transfer": N, "example": N, "compression": N}
     layer_signals: dict[str, int] = field(default_factory=dict)
+    # 上一轮 record_answer 前的 layer_signals 快照（用于 LLM 失败后 retry 回滚）
+    pre_answer_signals: dict[str, int] = field(default_factory=dict)
     # 每层的完整记录（对话+信号+得分+总结），按层名索引
     # 结构：{"how": {"dialogue": [...], "signals": {...}, "score": N, "summary": "...", "completed": bool}, ...}
     # 当前层进行中时只更新 signals/score；advance_layer 时归档完整 dialogue + compressed_summary
@@ -125,6 +127,7 @@ class SessionState:
             last_ai_question=data.get("last_ai_question", "") or "",
             last_user_answer=data.get("last_user_answer", "") or "",
             layer_signals=data.get("layer_signals", {}) or {},
+            pre_answer_signals=data.get("pre_answer_signals", {}) or {},
             layer_records=data.get("layer_records", {}) or {},
             node_history=data.get("node_history", []) or [],
         )

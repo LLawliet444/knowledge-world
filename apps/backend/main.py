@@ -361,6 +361,12 @@ async def _process_answer(
     if scope is None:
         raise HTTPException(404, f"Node {node_id} not found")
 
+    # 保存 record_answer 前的 signals 快照，供 retry 回滚使用
+    state = session_manager.get_session(session_id)
+    if state is not None:
+        state.pre_answer_signals = dict(state.layer_signals)
+        session_manager.save(state)
+
     state = session_manager.record_answer(session_id, user_input)
 
     layer = state.current_layer
@@ -373,7 +379,7 @@ async def _process_answer(
     dialogue_history = window[:-1] if window else []
     compressed_summary = state.compressed_summary
 
-    teaching, evaluation = await socratic_engine.interact_and_evaluate(
+    teaching, evaluation, llm_status = await socratic_engine.interact_and_evaluate(
         session_id=session_id,
         node_id=node_id,
         layer=layer,
@@ -428,6 +434,7 @@ async def _process_answer(
             node_completed=False,
             teaching_content=teaching,
             evaluation=evaluation,
+            llm_status=llm_status,
         )
 
     # should_advance=True：先保存当前状态（含更新后的 signals/score/layer_records），
@@ -463,6 +470,7 @@ async def _process_answer(
             node_completed=True,
             layer_summary=layer_summary,
             evaluation=evaluation,
+            llm_status=llm_status,
         )
 
     next_teaching = await socratic_engine.generate_first_question(
@@ -497,6 +505,7 @@ async def _process_answer(
         layer_summary=layer_summary,
         teaching_content=next_teaching,
         evaluation=evaluation,
+        llm_status=llm_status,
     )
 
 
@@ -514,6 +523,7 @@ async def answer(request: Request, session_id: str, node_id: str, req: AnswerReq
         session_id=session_id,
         node_id=node_id,
         input_len=len(req.user_input),
+        retry=req.retry,
     )
 
     state = session_manager.get_session(session_id)
@@ -521,6 +531,28 @@ async def answer(request: Request, session_id: str, node_id: str, req: AnswerReq
         raise HTTPException(404, "Session not found")
     if state.node_id != node_id:
         raise HTTPException(400, "Session not in this node")
+
+    # retry=true：回滚上一轮失败的记录（pop user+ai 消息、round-1、恢复 signals）
+    if req.retry and state.layer_dialogue:
+        # pop 最后的 AI 回复（兜底内容）
+        if state.layer_dialogue and state.layer_dialogue[-1].get("role") == "ai":
+            state.layer_dialogue.pop()
+        # pop 最后的用户回答
+        if state.layer_dialogue and state.layer_dialogue[-1].get("role") == "user":
+            state.layer_dialogue.pop()
+        state.current_round = max(0, state.current_round - 1)
+        state.last_user_answer = ""
+        # 恢复 record_answer 前的 signals（避免 teaching_failed 场景下信号重复累加）
+        state.layer_signals = dict(state.pre_answer_signals)
+        session_manager.save(state)
+        logger.info(
+            "answer_retry_rollback",
+            trace_id=get_trace_id(),
+            session_id=session_id,
+            node_id=node_id,
+            current_round=state.current_round,
+            dialogue_len=len(state.layer_dialogue),
+        )
 
     return await _process_answer(session_id, node_id, req.user_input)
 
