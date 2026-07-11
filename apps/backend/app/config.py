@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 load_dotenv(".env", override=True)
@@ -29,6 +30,18 @@ class Settings(BaseSettings):
     # 运行环境：development / production
     # production 下：关闭 reload、关闭 /docs、日志脱敏更严格
     app_env: str = "development"
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """支持逗号分隔字符串或 JSON 数组格式"""
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                import json
+                return json.loads(v)
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     class Config:
         env_file = ".env"
