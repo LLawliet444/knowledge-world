@@ -1,0 +1,33 @@
+{
+  "id": "how_unknown_once",
+  "layer": "how",
+  "description": "how层，用户连续正常回答后第1次说'不知道'，期望 hint_narrow 模式",
+  "inputs": {
+    "scope_summary": "虚构故事促进协作的链条（共同相信 → 信任基础 → 大规模协作）；邓巴数字及其突破机制；部落神话 → 宗教 → 公司的机制演化",
+    "criteria": "能说明虚构故事如何让陌生人之间建立信任；能描述从个体相信到群体协作的完整过程",
+    "misconceptions": "认为人类更聪明所以胜出；认为是工具或火带来文明；认为虚构等于谎言",
+    "previous_summary": "",
+    "user_input": "不知道了",
+    "round_num": 4,
+    "dialogue_history": [
+      {"role": "ai", "content": "在一个全是陌生人的部落里，如果没有共同相信的神话，你认为他们之间能自发组织起来建造公共建筑吗？为什么？"},
+      {"role": "user", "content": "不能"},
+      {"role": "ai", "content": "对，没有共同相信的故事，陌生人之间很难自发组织。那么假设部落共同相信祖先灵魂会惩罚不合作者，这种共同相信能让陌生人开始信任彼此并合作吗？"},
+      {"role": "user", "content": "可以"},
+      {"role": "ai", "content": "你抓住了关键。那么这种基于共同相信的信任，是如何一步步让成百上千陌生人协调行动完成大型工程的？你能描述从'每个人相信神话'到'分工协作'之间发生了什么吗？"},
+      {"role": "user", "content": "每个人都相信神话，然后相信不合作会被惩罚，也就知道其他人也相信，所以产生信任，可以做大规模分工协作"}
+    ],
+    "compressed_summary": "",
+    "accumulated_signals": {"abstraction": 0, "transfer": 0, "example": 0, "compression": 1}
+  },
+  "expectations": {
+    "mode": "hint_narrow",
+    "checks": {
+      "no_false_affirmation": true,
+      "not_repeat_original_question": true,
+      "question_count": 1,
+      "provides_hint": true,
+      "easier_than_original": true
+    }
+  }
+}
