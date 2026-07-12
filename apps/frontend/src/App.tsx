@@ -8,7 +8,7 @@ import { SideToolbar } from "./components/ui/SideToolbar";
 import { LegendBar } from "./components/ui/LegendBar";
 
 export const App: React.FC = () => {
-  const { world, loadWorld, sessionId, restoreSession } = useWorldStore();
+  const { world, loadWorld, sessionId, sessionJustCreated, restoreSession } = useWorldStore();
 
   useEffect(() => {
     if (!world) {
@@ -17,11 +17,13 @@ export const App: React.FC = () => {
   }, []);
 
   // 世界加载后，若有 sessionId 则从后端恢复进度（刷新页面场景）
+  // sessionJustCreated=true 表示 sessionId 是由 ChatDialog 首次 createSession 设置的，
+  // 前端已知当前层，不需要 restore（否则新 session 的 null 层会覆盖 currentDepth）
   useEffect(() => {
-    if (world && sessionId) {
+    if (world && sessionId && !sessionJustCreated) {
       restoreSession();
     }
-  }, [world, sessionId, restoreSession]);
+  }, [world, sessionId, sessionJustCreated, restoreSession]);
 
   if (!world) return null;
 

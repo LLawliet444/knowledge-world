@@ -387,7 +387,9 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({
           console.warn("[ChatDialog] 后端不可用，当前对话内容未保存到服务器");
           setBackendToast("⚠️ AI 服务不可用，当前内容未保存");
         }
-        setSessionId(sid);
+        // skipRestore=true：阻止 App.tsx 的 restoreSession 副作用
+        // （新 session 的 current_layer=null 会导致 currentDepth 被重置为 what，背景跳回第一层）
+        setSessionId(sid, true);
         setSessionToken(sess.secret_token);
       }
 

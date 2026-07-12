@@ -44,6 +44,11 @@ interface WorldState {
 
   // 会话鉴权令牌（与 sessionId 配对，请求头 X-Session-Token 携带）
   sessionToken: string | null;
+
+  // 标志位：区分「首次创建 session」与「刷新页面恢复」
+  // true = 刚由 ChatDialog 创建，App.tsx 不应触发 restoreSession（否则会用 null 层覆盖 currentDepth）
+  // resetProgress / restoreSession 后置回 false
+  sessionJustCreated: boolean;
 }
 
 interface WorldActions {
@@ -92,8 +97,11 @@ interface WorldActions {
   /** 学者移动到坐标 */
   moveScholar: (x: number, y: number) => void;
 
-  /** 设置后端会话 ID（首次 createSession 后存入，跨节点跨层复用） */
-  setSessionId: (id: string) => void;
+  /** 设置后端会话 ID（首次 createSession 后存入，跨节点跨层复用）
+   *  skipRestore=true：标记为「刚创建」，阻止 App.tsx 的 restoreSession 副作用
+   *  （仅用于 ChatDialog 首次 createSession，避免 null 层覆盖 currentDepth）
+   */
+  setSessionId: (id: string, skipRestore?: boolean) => void;
 
   /** 设置会话鉴权令牌（createSession 时与 sessionId 配对存入） */
   setSessionToken: (token: string) => void;
@@ -123,6 +131,7 @@ export const useWorldStore = create<WorldState & WorldActions>()(
       switchingTargetDepth: null,
       sessionId: null,
       sessionToken: null,
+      sessionJustCreated: false,
 
       loadWorld: (world) => {
         // 进度真源在后端 Redis，前端始终从初始进度开始；
@@ -247,7 +256,8 @@ export const useWorldStore = create<WorldState & WorldActions>()(
 
       moveScholar: (x, y) => set({ scholarPos: { x, y } }),
 
-      setSessionId: (id) => set({ sessionId: id }),
+      setSessionId: (id, skipRestore = false) =>
+        set({ sessionId: id, sessionJustCreated: skipRestore }),
 
       setSessionToken: (token) => {
         set({ sessionToken: token });
@@ -376,6 +386,7 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           currentDepth: depth,
           fogPercentage: calcFogPercentage(world, progress),
           scholarPos,
+          sessionJustCreated: false,
         });
 
         // 补跑节点笔记聚合：终问已通过的历史节点，若前端尚未 aggregateNode（如刷新后/构造数据），
@@ -406,6 +417,7 @@ export const useWorldStore = create<WorldState & WorldActions>()(
           // 重置进度同时清空会话，下次打开对话框会重新 createSession
           sessionId: null,
           sessionToken: null,
+          sessionJustCreated: false,
         });
         // 同步清空 API 客户端的令牌
         setApiSessionToken(null);
